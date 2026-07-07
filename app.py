@@ -45,11 +45,11 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
                     return True, response_json.get("message")
                 else:
                     return False, response_json.get("message", "Script executed with an unspecified error.")
-        except Exception:
-            return False, f"Response was not valid JSON. Raw output: {response.text}"
+            except Exception:
+                return False, f"Response was not valid JSON. Raw output: {response.text}"
         return False, f"Server responded with status code: {response.status_code}"
     except Exception as e:
-    return False, str(e)
+        return False, str(e)
 
 def generate_pdf_report(student_name, student_class, term, year, scores_df):
     pdf = FPDF()
