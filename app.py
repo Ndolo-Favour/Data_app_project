@@ -29,7 +29,7 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
         "meta": extra_metadata or {},
         "logMessage": log_message
     }
-
+    
     try:
         response = requests.post(
             API_URL,
@@ -37,11 +37,19 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
             headers={"Content-Type": "application/json"},
             timeout=15
         )
+        
         if response.status_code == 200:
-            return True, response.text
+            try:
+                response_json = response.json()
+                if response_json.get("status") == "success":
+                    return True, response_json.get("message")
+                else:
+                    return False, response_json.get("message", "Script executed with an unspecified error.")
+        except Exception:
+            return False, f"Response was not valid JSON. Raw output: {response.text}"
         return False, f"Server responded with status code: {response.status_code}"
     except Exception as e:
-        return False, str(e)
+    return False, str(e)
 
 def generate_pdf_report(student_name, student_class, term, year, scores_df):
     pdf = FPDF()
