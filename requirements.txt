@@ -1,0 +1,7 @@
+text
+
+streamlit
+requests
+pandas
+fpdf
+openpyxl
