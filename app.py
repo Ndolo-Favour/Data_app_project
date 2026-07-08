@@ -13,12 +13,15 @@ st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 @st.cache_data(ttl=300)
 def load_entire_database(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
-            return {tab_name: pd.DataFrame(data) for tab_name, data in response.json().items()}
-        return None
-    except Exception as e:
-        return None
+            try:
+                return {tab_name: pd.DataFrame(data) for tab_name, data in response.json().items()}, None
+            except Exception as json_err:
+                return None, f"JSON Parsing Error: The web app executed but did not return structured database JSON. Raw text received: {response.text[:300]}"
+                return None, f"Google Web App Server Error: Returned status code {response.status_code}"
+            except Exception as network_err:
+                return None, f"Network/Connection Error: {str(network_err)}"
 
 def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None, log_message=""):
     data_records = dataframe.fillna("").to_dict(orient="records") if not dataframe.empty else []
