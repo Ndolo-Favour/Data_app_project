@@ -13,50 +13,44 @@ st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 @st.cache_data(ttl=300)
 def load_entire_database(url):
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         if response.status_code == 200:
-            return {tab_name: pd.DataFrame(data) for tab_name, data in response.json().items()}
-        return None
-    except Exception:
-        return None
-
+            try:
+                return {tab_name: pd.DataFrame(data) for tab_name, data in response.json().items()}, None
+            except Exception as json_err:
+                return None, f"JSON Parsing Error: The web app executed but did not return structured database JSON. Raw text received: {response.text[:300]}"
+        return None, f"Google Web App Server Error: Returned status code {response.status_code}"
+    except Exception as network_err:
+        return None, f"Network/Connection Error: {str(network_err)}"
 
 def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None, log_message=""):
-    import numpy as np
-
-    # Convert DataFrame to JSON-serializable records
-    if isinstance(dataframe, pd.DataFrame) and not dataframe.empty:
-        df_clean = dataframe.where(pd.notnull(dataframe), None).copy()
-        records = df_clean.to_dict(orient="records")
-
-        def _conv_value(v):
-            # convert numpy scalar types to native Python types
-            if isinstance(v, (np.generic,)):
-                return v.item()
-            return v
-
-        records = [{k: _conv_value(v) for k, v in r.items()} for r in records]
-    else:
-        records = []
-
+    data_records = dataframe.fillna("").to_dict(orient="records") if not dataframe.empty else []
     payload = {
         "action": action_type,
         "sheetName": sheet_name,
-        "data": records,
+        "data": data_records,
         "meta": extra_metadata or {},
         "logMessage": log_message
     }
-
+    
     try:
-        # use json= so requests sets the header and handles encoding
-        response = requests.post(API_URL, json=payload, timeout=30)
-        # raise for HTTP errors so we catch them below
-        response.raise_for_status()
-        # try to parse JSON response if present
-        try:
-            return True, response.json()
-        except ValueError:
-            return True, response.text
+        response = requests.post(
+            API_URL,
+            data=json.dumps(payload),
+            headers={"Content-Type": "application/json"},
+            timeout=15
+        )
+        
+        if response.status_code == 200:
+            try:
+                response_json = response.json()
+                if response_json.get("status") == "success":
+                    return True, response_json.get("message")
+                else:
+                    return False, response_json.get("message", "Script executed with an unspecified error.")
+            except Exception:
+                return False, f"Response was not valid JSON. Raw output: {response.text}"
+        return False, f"Server responded with status code: {response.status_code}"
     except Exception as e:
         return False, str(e)
 
@@ -94,15 +88,17 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df):
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
 
-db = load_entire_database(API_URL)
+db_result, db_error = load_entire_database(API_URL)
 
-if not db:
+if not db_result:
     st.error("Database connection failed due to a network timeout or downtime.")
-    st.info("This usually happens if your internet connection dropped momentarily while loading the page.")
+    if db_error:
+        st.warning(db_error)
     if st.button("Retry Connection & Refresh"):
         st.cache_data.clear()
         st.rerun()
 else:
+    db = db_result
     master_registry = db.get("Master_Registry")
     teacher_registry = db.get("teacher_registry")
     teacher_assignments = db.get("teacher_assignments")
