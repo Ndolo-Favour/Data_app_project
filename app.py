@@ -728,12 +728,6 @@ else:
                                                         st.rerun()
                                                     else:
                                                         st.error(f"Submission failed: {message}")
-                                                            if success:
-                                                                st.success("Task marks locked and submitted for administrative audit!")
-                                                                st.cache_data.clear()
-                                                                st.rerun()
-                                                            else:
-                                                                st.error(f"Submission failed: {message}")
                                         else:
                                             st.warning(f"No active student list populated under class registry for {selected_class}.")
                                     else:
