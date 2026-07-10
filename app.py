@@ -6,7 +6,7 @@ import zipfile
 import io
 from fpdf import FPDF
 
-API_URL = "https://script.google.com/macros/s/AKfycbwLZ0zi8ohSM82431ufoaT8BJkj__3wjDu0AZUprrGPwCwJxZ9q3U0VUQAr8SDxZpkJ/exec"
+API_URL = "https://script.google.com/macros/s/AKfycbwQ5S7fWduVFhT_xaXUw7cFpiPWwOWBVvyRCr5fouaiugBifFvFpayKBCDzd1H-QqI9/exec"
 
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
@@ -612,9 +612,9 @@ else:
 
                                                     match = records_sub[records_sub["Student_ID"] == s_id]
                                                     if not match.empty:
-                                                        ca1_val = match["CA1"].iloc[0]
-                                                        ca2_val = match["CA2"].iloc[0]
-                                                        exam_val = match["Exam"].iloc[0]
+                                                        ca1_val = match["CA1"].iloc[0] if "CA1" in match.columns else match["1CA"].iloc[0] if "1CA" in match.columns else None
+                                                        ca2_val = match["CA2"].iloc[0] if "CA2" in match.columns else match["2CA"].iloc[0] if "2CA" in match.columns else None
+                                                        exam_val = match["Exam"].iloc[0] if "Exam" in match.columns else None
                                                     else:
                                                         ca1_val, ca2_val, exam_val = None, None, None
 
@@ -629,22 +629,36 @@ else:
 
                                             is_disabled = True if (current_task_status == "Submitted" or not allow_grade_entry) else False
 
-                                            edited_grades_df = st.data_editor(
-                                                st.session_state[workspace_key],
-                                                hide_index=True,
-                                                use_container_width=True,
-                                                disabled=is_disabled,
-                                                key=f"editor_widget_{workspace_key}",
-                                                column_config={
-                                                    "Student_ID": st.column_config.TextColumn("Student ID", disabled=True),
-                                                    "Student_Name": st.column_config.TextColumn("Student Name", disabled=True),
-                                                    "1CA": st.column_config.NumberColumn(f"1CA (Max {max_ca1})", min_value=0.0, max_value=max_ca1, format="%.1f"),
-                                                    "2CA": st.column_config.NumberColumn(f"2CA (Max {max_ca2})", min_value=0.0, max_value=max_ca2, format="%.1f"),
-                                                    "Exam": st.column_config.NumberColumn(f"Exam (Max {max_exam})", min_value=0.0, max_value=max_exam, format="%.1f")
-                                                }
-                                            )
+                                            # Form block isolates the spreadsheet component to prevent background chatter and keyboard drops on mobile screens
+                                            with st.form(key=f"form_block_{workspace_key}"):
+                                                
+                                                edited_grades_df = st.data_editor(
+                                                    st.session_state[workspace_key],
+                                                    hide_index=True,
+                                                    use_container_width=True,
+                                                    disabled=is_disabled,
+                                                    key=f"editor_widget_{workspace_key}",
+                                                    column_config={
+                                                        "Student_ID": st.column_config.TextColumn("Student ID", disabled=True),
+                                                        "Student_Name": st.column_config.TextColumn("Student Name", disabled=True),
+                                                        "1CA": st.column_config.NumberColumn(f"1CA (Max {max_ca1})", min_value=0.0, max_value=max_ca1, format="%.1f"),
+                                                        "2CA": st.column_config.NumberColumn(f"2CA (Max {max_ca2})", min_value=0.0, max_value=max_ca2, format="%.1f"),
+                                                        "Exam": st.column_config.NumberColumn(f"Exam (Max {max_exam})", min_value=0.0, max_value=max_exam, format="%.1f")
+                                                    }
+                                                )
 
-                                            st.session_state[workspace_key] = edited_grades_df
+                                                st.session_state[workspace_key] = edited_grades_df
+
+                                                save_draft_action = False
+                                                submit_final_action = False
+                                                
+                                                # Form submission elements instead of traditional unlinked buttons
+                                                if not is_disabled:
+                                                    col_btn1, col_btn2 = st.columns(2)
+                                                    with col_btn1:
+                                                        save_draft_action = st.form_submit_button("Save Local Draft Progress")
+                                                    with col_btn2:
+                                                        submit_final_action = st.form_submit_button("Submit Task Grades for Review")
 
                                             st.markdown("### Subject Performance Insights (View Only)")
 
@@ -676,42 +690,44 @@ else:
                                             else:
                                                 st.caption("Awaiting entries. Class analytics will compute automatically once scores are added.")
 
-                                            if current_task_status != "Submitted" and allow_grade_entry:
-                                                col_btn1, col_btn2 = st.columns(2)
+                                            # Process operations externally after a form submission event occurs
+                                            transmission_df = edited_grades_df.copy()
+                                            transmission_df["Subject"] = selected_subject
+                                            transmission_df["Term"] = current_term
+                                            transmission_df["Term_Total"] = transmission_df["1CA"].fillna(0) + transmission_df["2CA"].fillna(0) + transmission_df["Exam"].fillna(0)
 
-                                                transmission_df = edited_grades_df.copy()
-                                                transmission_df["Subject"] = selected_subject
-                                                transmission_df["Term"] = current_term
-                                                transmission_df["Term_Total"] = transmission_df["1CA"].fillna(0) + transmission_df["2CA"].fillna(0) + transmission_df["Exam"].fillna(0)
+                                            if save_draft_action:
+                                                with st.spinner("Synchronizing draft with cloud spreadsheet..."):
+                                                    log_text = f"Teacher {teacher_name} saved draft records for class {selected_class} subject {selected_subject}"
+                                                    success, message = write_back_to_sheets(
+                                                        dataframe=transmission_df,
+                                                        sheet_name="grade_records",
+                                                        action_type="upsert_rows",
+                                                        extra_metadata={"Teacher_ID": teacher_id_string, "Class": selected_class, "Subject": selected_subject, "Term": current_term},
+                                                        log_message=log_text
+                                                    )
+                                                    if success:
+                                                        st.success("Draft logs synchronized with Google Sheets successfully!")
+                                                        st.cache_data.clear()
+                                                    else:
+                                                        st.error(f"Cloud update failed: {message}")
 
-                                                with col_btn1:
-                                                    if st.button("Save Local Draft Progress"):
-                                                        with st.spinner("Synchronizing draft with cloud spreadsheet..."):
-                                                            log_text = f"Teacher {teacher_name} saved draft records for class {selected_class} subject {selected_subject}"
-                                                            success, message = write_back_to_sheets(
-                                                                dataframe=transmission_df,
-                                                                sheet_name="grade_records",
-                                                                action_type="save_draft_records",
-                                                                extra_metadata={"Teacher_ID": teacher_id_string, "Class": selected_class, "Subject": selected_subject, "Term": current_term},
-                                                                log_message=log_text
-                                                            )
-                                                            if success:
-                                                                st.success("Draft logs synchronized with Google Sheets successfully!")
-                                                                st.cache_data.clear()
-                                                            else:
-                                                                st.error(f"Cloud update failed: {message}")
-
-                                                with col_btn2:
-                                                    if st.button("Submit Task Grades for Review"):
-                                                        with st.spinner("Submitting finalized scores to administration registry..."):
-                                                            log_text = f"Teacher {teacher_name} submitted final records for class {selected_class} subject {selected_subject}"
-                                                            success, message = write_back_to_sheets(
-                                                                dataframe=transmission_df,
-                                                                sheet_name="grade_records",
-                                                                action_type="submit_final_records",
-                                                                extra_metadata={"Teacher_ID": teacher_id_string, "Class": selected_class, "Subject": selected_subject, "Term": current_term},
-                                                                log_message=log_text
-                                                            )
+                                            if submit_final_action:
+                                                with st.spinner("Submitting finalized scores to administration registry..."):
+                                                    log_text = f"Teacher {teacher_name} submitted final records for class {selected_class} subject {selected_subject}"
+                                                    success, message = write_back_to_sheets(
+                                                        dataframe=transmission_df,
+                                                        sheet_name="grade_records",
+                                                        action_type="upsert_rows",
+                                                        extra_metadata={"Teacher_ID": teacher_id_string, "Class": selected_class, "Subject": selected_subject, "Term": current_term},
+                                                        log_message=log_text
+                                                    )
+                                                    if success:
+                                                        st.success("Task marks locked and submitted for administrative audit!")
+                                                        st.cache_data.clear()
+                                                        st.rerun()
+                                                    else:
+                                                        st.error(f"Submission failed: {message}")
                                                             if success:
                                                                 st.success("Task marks locked and submitted for administrative audit!")
                                                                 st.cache_data.clear()
