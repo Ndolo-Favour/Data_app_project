@@ -560,7 +560,10 @@ else:
                                         assigned_classes = active_assignments["Class"].unique()
                                         selected_class = st.selectbox("Select an active class to manage:", assigned_classes)
 
+                                        # Filter assignments strictly by the selected class first
                                         class_filtered_assignments = active_assignments[active_assignments["Class"] == selected_class]
+                                        
+                                        # This dynamically pulls only the subjects assigned to this specific teacher for this specific class
                                         assigned_subjects = class_filtered_assignments["Subject"].unique()
                                         selected_subject = st.selectbox("Select subject:", assigned_subjects)
 
