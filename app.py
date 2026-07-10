@@ -422,61 +422,39 @@ else:
                                 if teacher_assignments is not None and not teacher_assignments.empty:
                                     pending_sheets = teacher_assignments[teacher_assignments["Status"] == "Submitted"]
                                     if not pending_sheets.empty:
-                                        selected_review = st.selectbox("Select a submitted sheet row to audit:",
-                                                                       pending_sheets.apply(lambda r: f"{r['Class']} - {r['Subject']}", axis=1))
+                                        # Map options with an explicit string structure to accurately trace the index position
+                                        pending_options = pending_sheets.apply(lambda r: f"{r['Class']} - {r['Subject']} (Teacher ID: {r['Teacher_ID']})", axis=1).tolist()
+                                        selected_option = st.selectbox("Select a submitted sheet row to audit:", pending_options)
+                                        
+                                        selected_idx = pending_options.index(selected_option)
+                                        selected_row = pending_sheets.iloc[selected_idx]
 
-                                        st.info(f"Auditing Sheet Data: {selected_review}")
-                                        
-                                        parsed_sel = selected_review.split(" - ")
-                                        target_class = parsed_sel[0]
-                                        target_subject = parsed_sel[1]
-                                        
-                                        class_students = master_registry[master_registry["Class"] == target_class] if master_registry is not None else pd.DataFrame()
-                                        
-                                        if not class_students.empty and grade_records is not None:
-                                            records_sub = grade_records[
-                                                (grade_records["Subject"] == target_subject) &
-                                                (grade_records["Term"] == current_term)
-                                            ]
-                                            
-                                            name_col = "Student_Name" if "Student_Name" in class_students.columns else ("STUDENT NAME" if "STUDENT NAME" in class_students.columns else class_students.columns[1] if len(class_students.columns) > 1 else "Student_Name")
-                                            
-                                            admin_view_rows = []
-                                            for _, student in class_students.iterrows():
-                                                s_id = student["Student_ID"]
-                                                s_name = student[name_col]
-                                                
-                                                match = records_sub[records_sub["Student_ID"] == s_id]
-                                                if not match.empty:
-                                                    ca1_val = match["CA1"].iloc[0] if "CA1" in match.columns else match["1CA"].iloc[0] if "1CA" in match.columns else None
-                                                    ca2_val = match["CA2"].iloc[0] if "CA2" in match.columns else match["2CA"].iloc[0] if "2CA" in match.columns else None
-                                                    exam_val = match["Exam"].iloc[0] if "Exam" in match.columns else None
-                                                else:
-                                                    ca1_val, ca2_val, exam_val = None, None, None
-                                                
-                                                admin_view_rows.append({
-                                                    "Student ID": s_id,
-                                                    "Student Name": s_name,
-                                                    "1CA": ca1_val,
-                                                    "2CA": ca2_val,
-                                                    "Exam": exam_val,
-                                                    "Total": (ca1_val or 0) + (ca2_val or 0) + (exam_val or 0)
-                                                })
-                                            
-                                            st.markdown("#### Submitted Grades Sheet (View Only)")
-                                            st.dataframe(pd.DataFrame(admin_view_rows), hide_index=True, use_container_width=True)
-                                        
+                                        st.info(f"Auditing Sheet Data: {selected_row['Class']} - {selected_row['Subject']}")
                                         rejection_reason = st.text_area("If rejecting this sheet, you must type a reason explanation note below:", key="admin_reject_note")
 
                                         btn_app, btn_rej = st.columns(2)
                                         with btn_app:
                                             if st.button("Approve and Lock Score Sheet"):
-                                                log_text = f"Admin {admin_name} approved scores for class {target_class} subject {target_subject}"
+                                                log_text = f"Admin {admin_name} approved scores for class {selected_row['Class']} subject {selected_row['Subject']}"
+                                                
+                                                # Pack the full row details into a targeted dataframe to send as data records
+                                                approval_df = pd.DataFrame([{
+                                                    "Teacher_ID": str(selected_row["Teacher_ID"]),
+                                                    "Class": str(selected_row["Class"]),
+                                                    "Subject": str(selected_row["Subject"]),
+                                                    "Status": "Approved",
+                                                    "Admin_Feedback": ""
+                                                }])
+                                                
                                                 success, message = write_back_to_sheets(
-                                                    dataframe=pd.DataFrame(),
+                                                    dataframe=approval_df,
                                                     sheet_name="teacher_assignments",
                                                     action_type="approve_assignment_sheet",
-                                                    extra_metadata={"Class": target_class, "Subject": target_subject, "Audited_By": admin_name},
+                                                    extra_metadata={
+                                                        "Teacher_ID": str(selected_row["Teacher_ID"]),
+                                                        "Class": str(selected_row["Class"]),
+                                                        "Subject": str(selected_row["Subject"])
+                                                    },
                                                     log_message=log_text
                                                 )
                                                 if success:
@@ -485,17 +463,33 @@ else:
                                                     st.rerun()
                                                 else:
                                                     st.error(f"Approval update failed: {message}")
+                                                    
                                         with btn_rej:
                                             if st.button("Reject and Send Back to Teacher Workspace"):
                                                 if not rejection_reason.strip():
                                                     st.error("Action Blocked: You must write an explanation note in the text field above before executing a rejection.")
                                                 else:
-                                                    log_text = f"Admin {admin_name} rejected scores for class {target_class} subject {target_subject}"
+                                                    log_text = f"Admin {admin_name} rejected scores for class {selected_row['Class']} subject {selected_row['Subject']}"
+                                                    
+                                                    # Pack the full row details along with the required error explanation note
+                                                    rejection_df = pd.DataFrame([{
+                                                        "Teacher_ID": str(selected_row["Teacher_ID"]),
+                                                        "Class": str(selected_row["Class"]),
+                                                        "Subject": str(selected_row["Subject"]),
+                                                        "Status": "Rejected",
+                                                        "Admin_Feedback": rejection_reason
+                                                    }])
+                                                    
                                                     success, message = write_back_to_sheets(
-                                                        dataframe=pd.DataFrame(),
+                                                        dataframe=rejection_df,
                                                         sheet_name="teacher_assignments",
                                                         action_type="reject_assignment_sheet",
-                                                        extra_metadata={"Class": target_class, "Subject": target_subject, "Feedback": rejection_reason, "Audited_By": admin_name},
+                                                        extra_metadata={
+                                                            "Teacher_ID": str(selected_row["Teacher_ID"]),
+                                                            "Class": str(selected_row["Class"]),
+                                                            "Subject": str(selected_row["Subject"]),
+                                                            "Feedback": rejection_reason
+                                                        },
                                                         log_message=log_text
                                                     )
                                                     if success:
