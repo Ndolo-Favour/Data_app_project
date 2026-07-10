@@ -557,19 +557,18 @@ else:
                                 st.progress(progress_percentage)
                                 st.caption(f"{completed_tasks} of {total_tasks} teaching tasks fully finalized and approved by Admin.")
 
-                                tab_active, tab_submitted = st.tabs(["Active Grading Tasks", "Awaiting Admin Approval"])
+                                tab_active, tab_submitted = st.tabs(["My Grading Workspace", "Task Status Overview"])
 
                                 with tab_active:
-                                    active_assignments = my_assignments[my_assignments["Status"] != "Approved"]
+                                    # We copy the full assignments list so approved and submitted tasks remain visible
+                                    active_assignments = my_assignments.copy()
 
                                     if not active_assignments.empty:
                                         assigned_classes = active_assignments["Class"].unique()
-                                        selected_class = st.selectbox("Select an active class to manage:", assigned_classes)
+                                        selected_class = st.selectbox("Select an active class to view or manage:", assigned_classes)
 
-                                        # Filter assignments strictly by the selected class first
                                         class_filtered_assignments = active_assignments[active_assignments["Class"] == selected_class]
                                         
-                                        # This dynamically pulls only the subjects assigned to this specific teacher for this specific class
                                         assigned_subjects = class_filtered_assignments["Subject"].unique()
                                         selected_subject = st.selectbox("Select subject:", assigned_subjects)
 
@@ -583,7 +582,9 @@ else:
                                             st.error(f"Rejection Feedback from Admin: {admin_feedback}")
 
                                         if current_task_status == "Submitted":
-                                            st.warning("This task has already been submitted and is locked awaiting Admin Approval.")
+                                            st.warning("This task has been submitted and is locked awaiting Admin Approval.")
+                                        elif current_task_status == "Approved":
+                                            st.success("This sheet has been Approved and permanently locked by Administration.")
                                         elif not allow_grade_entry:
                                             st.warning("Grade entry is currently closed by administration for this term period.")
                                         else:
@@ -592,9 +593,9 @@ else:
                                         st.markdown("#### Operational Checklist")
                                         col1, col2 = st.columns(2)
                                         with col1:
-                                            lesson_notes = st.checkbox("Submitted lesson notes for the session", value=False, disabled=(current_task_status == "Submitted"))
+                                            lesson_notes = st.checkbox("Submitted lesson notes for the session", value=False, disabled=(current_task_status in ["Submitted", "Approved"]))
                                         with col2:
-                                            diary_filled = st.checkbox("Filled diary for the session", value=False, disabled=(current_task_status == "Submitted"))
+                                            diary_filled = st.checkbox("Filled diary for the session", value=False, disabled=(current_task_status in ["Submitted", "Approved"]))
 
                                         st.markdown("#### Score Entry Sheet")
 
@@ -636,9 +637,8 @@ else:
                                                     })
                                                 st.session_state[workspace_key] = pd.DataFrame(entry_rows)
 
-                                            is_disabled = True if (current_task_status == "Submitted" or not allow_grade_entry) else False
+                                            is_disabled = True if (current_task_status in ["Submitted", "Approved"] or not allow_grade_entry) else False
 
-                                            # Form block isolates the spreadsheet component to prevent background chatter and keyboard drops on mobile screens
                                             with st.form(key=f"form_block_{workspace_key}"):
                                                 
                                                 edited_grades_df = st.data_editor(
@@ -661,7 +661,6 @@ else:
                                                 save_draft_action = False
                                                 submit_final_action = False
                                                 
-                                                # Form submission elements instead of traditional unlinked buttons
                                                 if not is_disabled:
                                                     col_btn1, col_btn2 = st.columns(2)
                                                     with col_btn1:
@@ -677,19 +676,19 @@ else:
                                             calc_df["Exam"] = pd.to_numeric(calc_df["Exam"])
                                             calc_df["Total"] = calc_df["1CA"].fillna(0) + calc_df["2CA"].fillna(0) + calc_df["Exam"].fillna(0)
 
-                                            has_scores = calc_df[["1CA", "2CA", "Exam"]].notna().any().any()
+                                            insight_df = calc_df[calc_df[["1CA", "2CA", "Exam"]].notna().any(axis=1)]
 
-                                            if has_scores:
-                                                avg_score = calc_df["Total"].mean()
-                                                min_score = calc_df["Total"].min()
-                                                max_score = calc_df["Total"].max()
+                                            if not insight_df.empty:
+                                                avg_score = insight_df["Total"].mean()
+                                                min_score = insight_df["Total"].min()
+                                                max_score = insight_df["Total"].max()
 
                                                 col_a, col_b, col_c = st.columns(3)
                                                 col_a.metric(label="Average Subject Score", value=f"{avg_score:.2f}")
                                                 col_b.metric(label="Lowest Score", value=f"{min_score:.2f}")
                                                 col_c.metric(label="Highest Score", value=f"{max_score:.2f}")
 
-                                                needing_help = calc_df[calc_df["Total"] < min_passing_score].sort_values(by="Total", ascending=True).head(3)
+                                                needing_help = insight_df[insight_df["Total"] < min_passing_score].sort_values(by="Total", ascending=True).head(3)
                                                 st.markdown("#### Students Needing Intervention")
                                                 if not needing_help.empty:
                                                     for idx, row in needing_help.iterrows():
@@ -699,7 +698,6 @@ else:
                                             else:
                                                 st.caption("Awaiting entries. Class analytics will compute automatically once scores are added.")
 
-                                            # Process operations externally after a form submission event occurs
                                             transmission_df = edited_grades_df.copy()
                                             transmission_df["Subject"] = selected_subject
                                             transmission_df["Term"] = current_term
@@ -724,31 +722,47 @@ else:
                                             if submit_final_action:
                                                 with st.spinner("Submitting finalized scores to administration registry..."):
                                                     log_text = f"Teacher {teacher_name} submitted final records for class {selected_class} subject {selected_subject}"
-                                                    success, message = write_back_to_sheets(
+                                                    
+                                                    success_grades, message_grades = write_back_to_sheets(
                                                         dataframe=transmission_df,
                                                         sheet_name="grade_records",
                                                         action_type="upsert_rows",
                                                         extra_metadata={"Teacher_ID": teacher_id_string, "Class": selected_class, "Subject": selected_subject, "Term": current_term},
                                                         log_message=log_text
                                                     )
-                                                    if success:
+                                                    
+                                                    if success_grades:
+                                                        status_payload = pd.DataFrame([{
+                                                            "Teacher_ID": teacher_id_string,
+                                                            "Class": selected_class,
+                                                            "Subject": selected_subject,
+                                                            "Status": "Submitted"
+                                                        }])
+                                                        
+                                                        success_status, message_status = write_back_to_sheets(
+                                                            dataframe=status_payload,
+                                                            sheet_name="teacher_assignments",
+                                                            action_type="update_task_status",
+                                                            log_message="Locked task sheet for Admin review"
+                                                        )
+                                                        
                                                         st.success("Task marks locked and submitted for administrative audit!")
                                                         st.cache_data.clear()
                                                         st.rerun()
                                                     else:
-                                                        st.error(f"Submission failed: {message}")
+                                                        st.error(f"Submission failed: {message_grades}")
                                         else:
                                             st.warning(f"No active student list populated under class registry for {selected_class}.")
                                     else:
-                                        st.success("All your assigned educational grading tasks have been completed and approved!")
+                                        st.success("You do not have any teaching assignments currently mapped to your profile.")
 
                                 with tab_submitted:
-                                    review_assignments = my_assignments[my_assignments["Status"] == "Submitted"]
+                                    review_assignments = my_assignments[my_assignments["Status"].isin(["Submitted", "Approved"])]
                                     if not review_assignments.empty:
-                                        st.write("The following grading sheets have been sent to the admin and are awaiting final approval:")
+                                        st.write("Tracking ledger for sheets sent to administration:")
                                         st.dataframe(review_assignments[["Class", "Subject", "Status"]], hide_index=True, use_container_width=True)
                                     else:
-                                        st.write("You have no tasks currently pending review. Everything submitted has been processed!")
+                                        st.write("You have no tasks currently pending review or approved.")
 
                     else:
                         st.error("Invalid verification PIN. Access denied.")
