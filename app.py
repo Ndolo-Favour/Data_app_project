@@ -683,7 +683,7 @@ else:
                                                 col_b.metric(label="Lowest Score", value=f"{min_score:.2f}")
                                                 col_c.metric(label="Highest Score", value=f"{max_score:.2f}")
 
-                                                needing_help = calc_df[calc_df["Total"] < min_passing_score]
+                                                needing_help = calc_df[calc_df["Total"] < min_passing_score].sort_values(by="Total", ascending=True).head(3)
                                                 st.markdown("#### Students Needing Intervention")
                                                 if not needing_help.empty:
                                                     for idx, row in needing_help.iterrows():
