@@ -353,56 +353,62 @@ else:
                                 display_name = "Student_Name" if master_registry is not None and "Student_Name" in master_registry.columns else ("STUDENT NAME" if master_registry is not None and "STUDENT NAME" in master_registry.columns else None)
 
                                 if grade_records is not None and not grade_records.empty and master_registry is not None and not master_registry.empty:
-                                    
                                     current_term_grades = grade_records[grade_records["Term"] == current_term].copy()
                                     
                                     if not current_term_grades.empty:
-                                        current_term_grades["Term_Total"] = pd.to_numeric(current_term_grades["Term_Total"], errors="coerce").fillna(0)
-                                        student_averages = current_term_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
-                                        student_averages.columns = ["Student_ID", "Term_Average"]
-                                        calc_reg = pd.merge(student_averages, master_registry, on="Student_ID", how="left")
-    
-                                        def categorize_section(class_name):
-                                            if "JSS" in str(class_name).upper():
-                                                return "Junior"
-                                            elif "SS" in str(class_name).upper():
-                                                return "Senior"
-                                            return "Other"
-    
-                                        calc_reg["Section"] = calc_reg["Class"].apply(categorize_section)
-    
-                                        st.markdown("### School Leaderboard Engine")
-                                        col_jun, col_sen = st.columns(2)
-    
-                                        lbl_name = display_name if display_name else "Student_Name"
-                                        if lbl_name not in calc_reg.columns:
-                                            calc_reg[lbl_name] = "Blank Name"
-    
-                                        with col_jun:
-                                            st.markdown("Top 2 Performing Junior Students (JSS1 to JSS3)")
-                                            juniors = calc_reg[calc_reg["Section"] == "Junior"].nlargest(2, "Term_Average")
-                                            if not juniors.empty:
-                                                for idx, row in juniors.iterrows():
-                                                    st.write(f"• {row[lbl_name]} ({row['Class']}) Average: {row['Term_Average']:.3f}%")
+                                        current_term_grades["Term_Total"] = pd.to_numeric(current_term_grades["Term_Total"], errors="coerce")
+                                        
+                                        # Strict filter to omit rows without marks or with explicit zero totals
+                                        current_term_grades = current_term_grades[current_term_grades["Term_Total"].notna() & (current_term_grades["Term_Total"] > 0)]
+                                        
+                                        if not current_term_grades.empty:
+                                            student_averages = current_term_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                                            student_averages.columns = ["Student_ID", "Term_Average"]
+                                            calc_reg = pd.merge(student_averages, master_registry, on="Student_ID", how="left")
+                                
+                                            def categorize_section(class_name):
+                                                if "JSS" in str(class_name).upper():
+                                                    return "Junior"
+                                                elif "SS" in str(class_name).upper():
+                                                    return "Senior"
+                                                return "Other"
+                                
+                                            calc_reg["Section"] = calc_reg["Class"].apply(categorize_section)
+                                
+                                            st.markdown("### School Leaderboard Engine")
+                                            col_jun, col_sen = st.columns(2)
+                                
+                                            lbl_name = display_name if display_name else "Student_Name"
+                                            if lbl_name not in calc_reg.columns:
+                                                calc_reg[lbl_name] = "Blank Name"
+                                
+                                            with col_jun:
+                                                st.markdown("Top 2 Performing Junior Students (JSS1 to JSS3)")
+                                                juniors = calc_reg[calc_reg["Section"] == "Junior"].nlargest(2, "Term_Average")
+                                                if not juniors.empty:
+                                                    for idx, row in juniors.iterrows():
+                                                        st.write(f"• {row[lbl_name]} ({row['Class']}) Average: {row['Term_Average']:.3f}%")
+                                                else:
+                                                    st.write("Awaiting junior school grades.")
+                                
+                                            with col_sen:
+                                                st.markdown("Top 2 Performing Senior Students (SS1 to SS3)")
+                                                seniors = calc_reg[calc_reg["Section"] == "Senior"].nlargest(2, "Term_Average")
+                                                if not seniors.empty:
+                                                    for idx, row in seniors.iterrows():
+                                                        st.write(f"• {row[lbl_name]} ({row['Class']}) Average: {row['Term_Average']:.3f}%")
+                                                else:
+                                                    st.write("Awaiting senior school grades.")
+                                
+                                            st.markdown("#### Academic Intervention Risk Alerts")
+                                            bottom_students = calc_reg[calc_reg["Term_Average"] > 0].nsmallest(2, "Term_Average")
+                                            if not bottom_students.empty:
+                                                for idx, row in bottom_students.iterrows():
+                                                    st.error(f"Red Alert: {row[lbl_name]} ({row['Class']}) Current Cumulative Term Avg: {row['Term_Average']:.3f}%")
                                             else:
-                                                st.write("Awaiting junior school grades.")
-    
-                                        with col_sen:
-                                            st.markdown("Top 2 Performing Senior Students (SS1 to SS3)")
-                                            seniors = calc_reg[calc_reg["Section"] == "Senior"].nlargest(2, "Term_Average")
-                                            if not seniors.empty:
-                                                for idx, row in seniors.iterrows():
-                                                    st.write(f"• {row[lbl_name]} ({row['Class']}) Average: {row['Term_Average']:.3f}%")
-                                            else:
-                                                st.write("Awaiting senior school grades.")
-    
-                                        st.markdown("#### Academic Intervention Risk Alerts")
-                                        bottom_students = calc_reg[calc_reg["Term_Average"] > 0].nsmallest(2, "Term_Average")
-                                        if not bottom_students.empty:
-                                            for idx, row in bottom_students.iterrows():
-                                                st.error(f"Red Alert: {row[lbl_name]} ({row['Class']}) Current Cumulative Term Avg: {row['Term_Average']:.3f}%")
+                                                st.info("No current academic risk alerts to display.")
                                         else:
-                                            st.info("No current academic risk alerts to display.")
+                                            st.info(f"No active grade entries found for the currently active term: {current_term}")
                                     else:
                                         st.info(f"No grade entries found for the currently active term: {current_term}")
                                 else:
@@ -410,7 +416,7 @@ else:
 
                                 st.markdown("### Predictive Analytics Module")
                                 st.info("Model Architecture Pipeline: In the next integration milestone, an analytics engine will analyze historical score curves, flag risk categories, and project terminal performance metrics.")
-
+                            
                             with adm_tabs[2]:
                                 st.subheader("Pending Teacher Sheets Review Ledger")
                                 if teacher_assignments is not None and not teacher_assignments.empty:
