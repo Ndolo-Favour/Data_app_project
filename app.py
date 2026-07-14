@@ -848,6 +848,266 @@ else:
 
     elif user_role == "Student Results View":
         st.title("Student Term Performance Portal")
-        st.info(f"Active View: {current_year} and {current_term}")
-        
-        st.write("Student results portal loading...")
+        st.info(f"Active Session: {current_year} | {current_term}")
+
+        student_id_input = st.text_input("Enter Student ID to view result (e.g., J1013):").strip()
+
+        if student_id_input:
+            if master_registry is not None and not master_registry.empty:
+                # Find the student matching the code case-insensitively
+                match = master_registry[master_registry["Student_ID"].astype(str).str.strip().str.lower() == student_id_input.lower()]
+
+                if not match.empty:
+                    student_row = match.iloc[0]
+                    student_id = str(student_row["Student_ID"])
+                    
+                    # Resolve display name and demographic fields
+                    display_name_col = "Student_Name" if "Student_Name" in master_registry.columns else ("STUDENT NAME" if "STUDENT NAME" in master_registry.columns else "Student_ID")
+                    student_name = student_row.get(display_name_col, "Unknown Student")
+                    student_class = student_row.get("Class", "Unknown Class")
+                    student_gender = student_row.get("Gender", "N/A")
+
+                    # 1. POSITIONAL AND AVERAGE CALCULATIONS
+                    # Get IDs of all registered classmates in this specific class
+                    classmate_ids = master_registry[master_registry["Class"] == student_class]["Student_ID"].unique()
+
+                    # Filter term scores for classmates
+                    term_grades = grade_records[grade_records["Term"] == current_term].copy()
+                    term_grades["Term_Total"] = pd.to_numeric(term_grades["Term_Total"], errors="coerce")
+                    class_grades = term_grades[term_grades["Student_ID"].isin(classmate_ids)].copy()
+
+                    # Calculate terminal average for each classmate
+                    student_averages = class_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                    student_averages.columns = ["Student_ID", "Student_Average"]
+
+                    # Rank classmate averages to find positions (highest score is position 1)
+                    student_averages["Rank"] = student_averages["Student_Average"].rank(ascending=False, method="min")
+
+                    def to_ordinal(num):
+                        if pd.isna(num): 
+                            return "N/A"
+                        val = int(num)
+                        if 11 <= (val % 100) <= 13: 
+                            return f"{val}th"
+                        return f"{val}" + {1: "st", 2: "nd", 3: "rd"}.get(val % 10, "th")
+
+                    # Extract target student average and rank metrics
+                    target_summary = student_averages[student_averages["Student_ID"] == student_id]
+                    if not target_summary.empty:
+                        student_avg = target_summary["Student_Average"].values[0]
+                        student_rank_num = int(target_summary["Rank"].values[0])
+                        student_position = to_ordinal(student_rank_num)
+                    else:
+                        student_avg = 0.000
+                        student_position = "N/A"
+
+                    # Calculate global class average
+                    class_avg = student_averages["Student_Average"].mean() if not student_averages.empty else 0.000
+                    total_class_size = len(classmate_ids)
+
+                    # Calculate subject positions within the class roster
+                    class_grades["Subject_Rank_Val"] = class_grades.groupby("Subject")["Term_Total"].rank(ascending=False, method="min")
+                    class_grades["Subject_Rank"] = class_grades["Subject_Rank_Val"].apply(lambda r: to_ordinal(r) if pd.notna(r) else "N/A")
+
+                    # Filter active student subject records
+                    student_subject_records = class_grades[class_grades["Student_ID"] == student_id].copy()
+
+                    # 2. HARVEST EXPANDED TERM SUMMARIES AND BEHAVIOR DATA
+                    attendance_opened = "N/A"
+                    attendance_present = "N/A"
+                    attendance_absent = "N/A"
+                    teacher_comment = "No comment logged."
+                    principal_comment = "No comment logged."
+
+                    affective_keys = ["Punctuality", "Neatness", "Politeness", "Leadership", "Helping_Others", "Health", "Attentiveness", "Attitude_to_Work"]
+                    affective_ratings = {key: "N/A" for key in affective_keys}
+
+                    psychomotor_keys = ["Handwriting", "Verbal_Fluency", "Games", "Sport", "Handling_Tools", "Drawing_Painting"]
+                    psychomotor_ratings = {key: "N/A" for key in psychomotor_keys}
+
+                    if term_summaries is not None and not term_summaries.empty:
+                        matched_summary = term_summaries[
+                            (term_summaries["Term"] == current_term) &
+                            (term_summaries["Student_ID"].astype(str).str.strip().str.lower() == student_id.lower())
+                        ]
+                        if not matched_summary.empty:
+                            summary_row = matched_summary.iloc[0]
+
+                            # Define robust reader to handle potential duplicate index mappings or Series structures
+                            def safe_get(row, col_name, default="N/A"):
+                                if col_name in row.index:
+                                    val = row[col_name]
+                                    if isinstance(val, pd.Series):
+                                        val = val.iloc[0]
+                                    if pd.notna(val) and str(val).strip() != "":
+                                        return val
+                                renamed_cols = [col for col in row.index if str(col).startswith(col_name + ".")]
+                                for renamed_col in renamed_cols:
+                                    val = row[renamed_col]
+                                    if pd.notna(val) and str(val).strip() != "":
+                                        return val
+                                return default
+
+                            attendance_opened = safe_get(summary_row, "Attendance_Opened")
+                            attendance_present = safe_get(summary_row, "Attendance_Present")
+                            attendance_absent = safe_get(summary_row, "Attendance_Absent")
+                            teacher_comment = safe_get(summary_row, "Teacher_Comment")
+                            principal_comment = safe_get(summary_row, "Principal_Comment")
+
+                            for key in affective_keys:
+                                affective_ratings[key] = safe_get(summary_row, key)
+                            for key in psychomotor_keys:
+                                psychomotor_ratings[key] = safe_get(summary_row, key)
+
+                    # 3. BUILD COGNITIVE PERFORMANCE DOMAIN TABLES
+                    def evaluate_score_grade(score):
+                        if pd.isna(score):
+                            return "F", "Poor result"
+                        val = float(score)
+                        if val >= 80.0:
+                            return "A", "Excellent"
+                        elif val >= 70.0:
+                            return "B", "Good Result"
+                        elif val >= 50.0:
+                            return "C", "Fair"
+                        elif val >= 40.0:
+                            return "D", "Marginal"
+                        else:
+                            return "F", "Poor result"
+
+                    total_marks_obtained = student_subject_records["Term_Total"].sum() if not student_subject_records.empty else 0.000
+                    total_subjects_offered = len(student_subject_records)
+                    total_mark_obtainable = total_subjects_offered * 100.000
+
+                    total_subjects_passed = 0
+                    total_subjects_failed = 0
+                    cognitive_rows = []
+
+                    for _, row in student_subject_records.iterrows():
+                        subj = row["Subject"]
+                        ca1 = row.get("CA1", row.get("1CA", None))
+                        ca2 = row.get("CA2", row.get("2CA", None))
+                        exam = row.get("Exam", None)
+                        total = row.get("Term_Total", None)
+
+                        ca1_num = pd.to_numeric(ca1, errors="coerce")
+                        ca2_num = pd.to_numeric(ca2, errors="coerce")
+                        exam_num = pd.to_numeric(exam, errors="coerce")
+                        total_num = pd.to_numeric(total, errors="coerce")
+
+                        grade, comment = evaluate_score_grade(total_num)
+                        if pd.notna(total_num):
+                            if total_num >= min_passing_score:
+                                total_subjects_passed += 1
+                            else:
+                                total_subjects_failed += 1
+
+                        cognitive_rows.append({
+                            "Subject": subj,
+                            "1st CA (20)": ca1_num,
+                            "2nd CA (20)": ca2_num,
+                            "Exam (60)": exam_num,
+                            "Total (100)": total_num,
+                            "Grade": grade,
+                            "Subject Rank": row.get("Subject_Rank", "N/A"),
+                            "Comment": comment
+                        })
+
+                    cognitive_df = pd.DataFrame(cognitive_rows)
+
+                    # 4. RENDER ASSESSMENT REPORT CARD UI
+                    st.write("NO LIMITS SECONDARY SCHOOL")
+                    st.caption("64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.")
+                    st.write("End of Term Assessment Report")
+                    st.write("Section: JUNIOR SECONDARY SCHOOL SECTION")
+
+                    col_card1, col_card2, col_card3 = st.columns(3)
+                    with col_card1:
+                        st.write(f"Student Name: {student_name}")
+                        st.write(f"Class Room: {student_class}")
+                        st.write(f"Gender Group: {student_gender}")
+                    with col_card2:
+                        st.write(f"Session: {current_year}")
+                        st.write(f"Term Period: {current_term}")
+                        st.write(f"Student Code: {student_id}")
+                    with col_card3:
+                        st.write(f"School Opened: {attendance_opened}")
+                        st.write(f"Days Present: {attendance_present}")
+                        st.write(f"Days Absent: {attendance_absent}")
+
+                    col_metric1, col_metric2, col_metric3 = st.columns(3)
+                    with col_metric1:
+                        st.metric("Student's Average", f"{student_avg:.3f}%")
+                        st.write(f"Total Marks Obtained: {total_marks_obtained:.3f}")
+                    with col_metric2:
+                        st.metric("Class Average", f"{class_avg:.3f}%")
+                        st.write(f"Total Mark Obtainable: {total_mark_obtainable:.3f}")
+                    with col_metric3:
+                        st.metric("Position in Class", student_position)
+                        st.write(f"Total Classmates: {total_class_size}")
+
+                    st.write("Cognitive Domain Scores Matrix")
+                    if not cognitive_df.empty:
+                        # Presenting table values rounded to exactly 3 decimal places
+                        formatted_cognitive_df = cognitive_df.style.format({
+                            "1st CA (20)": "{:.3f}",
+                            "2nd CA (20)": "{:.3f}",
+                            "Exam (60)": "{:.3f}",
+                            "Total (100)": "{:.3f}"
+                        }, na_rep="Absent")
+                        st.dataframe(formatted_cognitive_df, hide_index=True, use_container_width=True)
+                    else:
+                        st.warning("No academic score records found for this student profile.")
+
+                    col_subj1, col_subj2, col_subj3 = st.columns(3)
+                    with col_subj1:
+                        st.write(f"Total Subjects Offered: {total_subjects_offered}")
+                    with col_subj2:
+                        st.write(f"Total Subjects Passed: {total_subjects_passed}")
+                    with col_subj3:
+                        st.write(f"Total Subjects Failed: {total_subjects_failed}")
+
+                    col_beh1, col_beh2 = st.columns(2)
+                    with col_beh1:
+                        st.write("Affective Behaviors Table")
+                        affective_list = [{"Affective Area": k.replace("_", " ").upper(), "Rating Scale": affective_ratings[k]} for k in affective_keys]
+                        st.dataframe(pd.DataFrame(affective_list), hide_index=True, use_container_width=True)
+
+                    with col_beh2:
+                        st.write("Psychomotor Skills Table")
+                        psychomotor_list = [{"Psychomotor Skill": k.replace("_", " ").upper(), "Rating Scale": psychomotor_ratings[k]} for k in psychomotor_keys]
+                        st.dataframe(pd.DataFrame(psychomotor_list), hide_index=True, use_container_width=True)
+
+                    col_legend1, col_legend2 = st.columns(2)
+                    with col_legend1:
+                        st.write("Behavioral Legend Keys")
+                        scale_legend = [
+                            {"Value": "5", "Description": "Excellent"},
+                            {"Value": "4", "Description": "Good"},
+                            {"Value": "3", "Description": "Average"},
+                            {"Value": "2", "Description": "Poor"},
+                            {"Value": "1", "Description": "Fair"}
+                        ]
+                        st.dataframe(pd.DataFrame(scale_legend), hide_index=True, use_container_width=True)
+                    with col_legend2:
+                        st.write("Academic Grading Keys Legend")
+                        grading_legend = [
+                            {"Grade": "A", "Score Bound": "80 - 100", "Remarks": "Excellent"},
+                            {"Grade": "B", "Score Bound": "70 - 79", "Remarks": "Good Result"},
+                            {"Grade": "C", "Score Bound": "50 - 69", "Remarks": "Fair"},
+                            {"Grade": "D", "Score Bound": "40 - 49", "Remarks": "Marginal"},
+                            {"Grade": "F", "Score Bound": "0 - 39", "Remarks": "Poor result"}
+                        ]
+                        st.dataframe(pd.DataFrame(grading_legend), hide_index=True, use_container_width=True)
+
+                    st.write("Administrative Endorsements and Remarks")
+                    col_comment1, col_comment2 = st.columns(2)
+                    with col_comment1:
+                        st.write(f"Class Teacher Remarks: {teacher_comment}")
+                    with col_comment2:
+                        st.write(f"School Principal Remarks: {principal_comment}")
+
+                else:
+                    st.error("The Student ID or Access Code could not be found in the registry database.")
+            else:
+                st.error("The Student Master Registry table is currently unavailable.")
