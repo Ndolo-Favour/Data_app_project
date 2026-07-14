@@ -262,13 +262,13 @@ else:
                                         t_choice = st.selectbox("Select Target Teacher:", teacher_registry["Teacher_Name"].unique())
                                         c_choice = st.selectbox("Select Target Class Assignment Room:", dynamic_class_list)
                                         if c_choice.startswith("JSS"):
-                                        group_filter = master_registry["Class"].astype(str).str.startswith("JSS")
-                                    elif "SCIENCE" in c_choice.upper():
-                                        group_filter = master_registry["Class"].astype(str).str.upper().str.contains("SCIENCE")
-                                    elif "ARTS & COMMERCIAL" in c_choice.upper():
-                                        group_filter = master_registry["Class"].astype(str).str.upper().str.contains("ARTS & COMMERCIAL")
-                                    else:
-                                        group_filter = pd.Series([True] * len(master_registry))
+                                            group_filter = master_registry["Class"].astype(str).str.startswith("JSS")
+                                        elif "SCIENCE" in c_choice.upper():
+                                            group_filter = master_registry["Class"].astype(str).str.upper().str.contains("SCIENCE")
+                                        elif "ARTS & COMMERCIAL" in c_choice.upper():
+                                            group_filter = master_registry["Class"].astype(str).str.upper().str.contains("ARTS & COMMERCIAL")
+                                        else:
+                                            group_filter = pd.Series([True] * len(master_registry))
                                     
                                     #identify student IDs to link classes
                                     id_col = "Student_ID" if "Student_ID" in master_registry.columns else "STUDENT NAME"
