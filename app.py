@@ -261,7 +261,27 @@ else:
                                     if teacher_registry is not None and not teacher_registry.empty:
                                         t_choice = st.selectbox("Select Target Teacher:", teacher_registry["Teacher_Name"].unique())
                                         c_choice = st.selectbox("Select Target Class Assignment Room:", dynamic_class_list)
-                                        s_choice = st.text_input("Enter Subject Key Name (e.g., Data Science, Biology):")
+                                        if c_choice.startswith("JSS"):
+                                        group_filter = master_registry["Class"].astype(str).str.startswith("JSS")
+                                    elif "SCIENCE" in c_choice.upper():
+                                        group_filter = master_registry["Class"].astype(str).str.upper().str.contains("SCIENCE")
+                                    elif "ARTS & COMMERCIAL" in c_choice.upper():
+                                        group_filter = master_registry["Class"].astype(str).str.upper().str.contains("ARTS & COMMERCIAL")
+                                    else:
+                                        group_filter = pd.Series([True] * len(master_registry))
+                                    
+                                    #identify student IDs to link classes
+                                    id_col = "Student_ID" if "Student_ID" in master_registry.columns else "STUDENT NAME"
+                                    relevant_student_ids = master_registry[group_filter][id_col].unique()
+                                    # Extract unique subjects
+                                    grade_id_col = "Student_ID" if "Student_ID" in grade_records.columns else "STUDENT NAME"
+                                    filtered_subjects = grade_records[grade_records[grade_id_col].isin(relevant_student_ids)]["Subject"].dropna().unique().tolist()
+                                    # Fallback to all subjects if filtered list is empty
+                                    if not filtered_subjects:
+                                        filtered_subjects = grade_records["Subject"].dropna().unique().tolist()
+                                    
+                                    # Dropdown selection instead of manual input
+                                    s_choice = st.selectbox("Select Subject Name:", sorted(filtered_subjects))
                                         if st.button("Deploy Subject Task Assignment Row"):
                                             if s_choice:
                                                 t_id = teacher_registry[teacher_registry["Teacher_Name"] == t_choice]["Teacher_ID"].values[0]
