@@ -13,7 +13,7 @@ st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 @st.cache_data(ttl=300)
 def load_entire_database(url):
     try:
-        response = requests.get(url, timeout=15)
+        response = requests.get(url, timeout=45)
         if response.status_code == 200:
             try:
                 return {tab_name: pd.DataFrame(data) for tab_name, data in response.json().items()}, None
