@@ -1206,22 +1206,22 @@ else:
                             unsafe_allow_html=True
                         )
 
-                    # 6. RENDER SUMMARY METRIC BLOCKS (Values rounded to 3 decimal places)
+                    # 6. RENDER SUMMARY METRIC BLOCKS (Values rounded to 2 decimal places)
                     if is_third_term:
                         col_term_sum, col_session_sum = st.columns(2)
                         with col_term_sum:
                             st.markdown('<div style="color: #0000FF; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Term Summary</div>', unsafe_allow_html=True)
                             st.markdown(
-                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Term Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_avg:.3f}%</span></div>'
-                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Term:</span> <span style="font-weight: bold; opacity: 1.0;">{class_avg:.3f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Term Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Term:</span> <span style="font-weight: bold; opacity: 1.0;">{class_avg:.2f}%</span></div>'
                                 f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Position for the Term:</span> <span style="font-weight: bold; opacity: 1.0;">{student_position}</span></div>',
                                 unsafe_allow_html=True
                             )
                         with col_session_sum:
                             st.markdown('<div style="color: #0000FF; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Session Summary</div>', unsafe_allow_html=True)
                             st.markdown(
-                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Session Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_session_avg:.3f}%</span></div>'
-                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Session:</span> <span style="font-weight: bold; opacity: 1.0;">{class_session_avg:.3f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Session Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_session_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Session:</span> <span style="font-weight: bold; opacity: 1.0;">{class_session_avg:.2f}%</span></div>'
                                 f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Position for the Session:</span> <span style="font-weight: bold; opacity: 1.0;">{student_session_position}</span></div>',
                                 unsafe_allow_html=True
                             )
@@ -1238,9 +1238,9 @@ else:
                             st.write(f"Total Classmates: {total_class_size}")
 
                     # 7. RENDER COGNITIVE SCORE TABLES
-                    st.markdown("### Cognitive Domain Scores")
+                    st.markdown("## Cognitive Domain Scores")
                     if not cognitive_df.empty:
-                        # Precision formats: 3 decimal place format dictionaries
+                        # Precision formats: 2 decimal place format dictionaries
                         format_dict = {
                             "1st CA (20)": "{:.2f}",
                             "2nd CA (20)": "{:.2f}",
