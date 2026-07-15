@@ -1114,28 +1114,28 @@ else:
 
                     # 5. RENDER ASSESSMENT REPORT CARD UI
                     st.markdown(
-                        '<div style="text-align: center; font-size: 16px; font-weight: bold; color: #FF0000; margin-bottom: 2px;">NO LIMITS SECONDARY SCHOOL</div>', 
+                        '<div style="text-align: center; font-size: 20px; font-weight: bold; color: #FF0000; margin-bottom: 2px;">NO LIMITS SECONDARY SCHOOL</div>', 
                         unsafe_allow_html=True
                     )
                     st.markdown(
-                        '<div style="text-align: center; font-style: italic; font-size: 12px; color: #0000FF; margin-bottom: 8px;">64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.</div>', 
+                        '<div style="text-align: center; font-style: italic; font-size: 14px; color: #0000FF; margin-bottom: 8px;">64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.</div>', 
                         unsafe_allow_html=True
                     )
                     st.markdown(
-                        '<div style="text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 4px;">End of Term Assessment Report</div>', 
+                        '<div style="text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 4px;">End of Term Assessment Report</div>', 
                         unsafe_allow_html=True
                     )
                     
                     # Dynamically resolve section based on Class
                     section = "JUNIOR SECONDARY SCHOOL SECTION" if "JSS" in str(student_class).upper() else "SENIOR SECONDARY SCHOOL SECTION"
                     st.markdown(
-                        f'<div style="text-align: center; font-size: 12px; margin-bottom: 12px;">Section: {section}</div>', 
+                        f'<div style="text-align: center; font-size: 16px; margin-bottom: 12px;">{section}</div>', 
                         unsafe_allow_html=True
                     )
 
                     # Student's Name row
                     st.markdown(
-                        f'<div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">Student\'s Name: {student_name}</div>', 
+                        f'<div style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">Student\'s Name: {student_name}</div>', 
                         unsafe_allow_html=True
                     )
 
