@@ -870,7 +870,7 @@ else:
         st.title("Student Term Performance Portal")
         st.info(f"Active Session: {current_year} | {current_term}")
 
-        student_id_input = st.text_input("Enter Student ID to view result (e.g., J1013):").strip()
+        student_id_input = st.text_input("Enter Student ID to view result:").strip()
 
         if student_id_input:
             if master_registry is not None and not master_registry.empty:
@@ -918,28 +918,59 @@ else:
                         student_rank_num = int(target_summary["Rank"].values[0])
                         student_position = to_ordinal(student_rank_num)
                     else:
-                        student_avg = 0.000
+                        student_avg = 0.00
                         student_position = "N/A"
 
                     # Calculate global class average
-                    class_avg = student_averages["Student_Average"].mean() if not student_averages.empty else 0.000
+                    class_avg = student_averages["Student_Average"].mean() if not student_averages.empty else 0.00
                     total_class_size = len(classmate_ids)
 
-                    # Calculate subject positions within the class roster
+                    # Determine term rules
+                    is_third_term = "3" in str(current_term) or "third" in str(current_term).lower()
+
+                    # 2. RUN SESSION COMPUTATIONS IF IT IS 3RD TERM
+                    student_session_avg = 0.00
+                    class_session_avg = 0.00
+                    student_session_position = "N/A"
+                    class_session_grades = pd.DataFrame()
+
+                    if is_third_term and grade_records is not None and not grade_records.empty:
+                        # Fetch all classmate records across all terms for the entire session
+                        class_session_grades = grade_records[grade_records["Student_ID"].isin(classmate_ids)].copy()
+                        class_session_grades["Term_Total"] = pd.to_numeric(class_session_grades["Term_Total"], errors="coerce")
+
+                        # Target Student Session Average calculation (Sum of all student totals / total records)
+                        target_session_grades = class_session_grades[class_session_grades["Student_ID"] == student_id]
+                        student_session_avg = target_session_grades["Term_Total"].mean() if not target_session_grades.empty else 0.00
+
+                        # Calculate classmate session averages to resolve ranking
+                        classmates_session_summaries = class_session_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                        classmates_session_summaries.columns = ["Student_ID", "Classmate_Session_Avg"]
+                        classmates_session_summaries["Session_Rank"] = classmates_session_summaries["Classmate_Session_Avg"].rank(ascending=False, method="min")
+
+                        # Global Class Session Average calculation (Sum of classmate totals / total records)
+                        class_session_avg = classmates_session_summaries["Classmate_Session_Avg"].mean() if not classmates_session_summaries.empty else 0.00
+
+                        target_sess_rank_match = classmates_session_summaries[classmates_session_summaries["Student_ID"] == student_id]
+                        if not target_sess_rank_match.empty:
+                            student_session_position = to_ordinal(int(target_sess_rank_match["Session_Rank"].values[0]))
+
+                    # Calculate subject positions within the class roster for First/Second Term defaults
                     class_grades["Subject_Rank_Val"] = class_grades.groupby("Subject")["Term_Total"].rank(ascending=False, method="min")
                     class_grades["Subject_Rank"] = class_grades["Subject_Rank_Val"].apply(lambda r: to_ordinal(r) if pd.notna(r) else "N/A")
 
                     # Filter active student subject records
                     student_subject_records = class_grades[class_grades["Student_ID"] == student_id].copy()
 
-                    # 2. HARVEST EXPANDED TERM SUMMARIES AND BEHAVIOR DATA
+                    # 3. HARVEST EXPANDED TERM SUMMARIES AND BEHAVIOR DATA
                     attendance_opened = "N/A"
                     attendance_present = "N/A"
                     attendance_absent = "N/A"
                     teacher_comment = "No comment logged."
                     principal_comment = "No comment logged."
 
-                    affective_keys = ["Punctuality", "Neatness", "Politeness", "Leadership", "Helping_Others", "Health", "Attentiveness", "Attitude_to_Work"]
+                    # Removed "Politeness" and "Health" from affective_keys
+                    affective_keys = ["Punctuality", "Neatness", "Leadership", "Helping_Others", "Attentiveness", "Attitude_to_Work"]
                     affective_ratings = {key: "N/A" for key in affective_keys}
 
                     psychomotor_keys = ["Handwriting", "Verbal_Fluency", "Games", "Sport", "Handling_Tools", "Drawing_Painting"]
@@ -953,7 +984,6 @@ else:
                         if not matched_summary.empty:
                             summary_row = matched_summary.iloc[0]
 
-                            # Define robust reader to handle potential duplicate index mappings or Series structures
                             def safe_get(row, col_name, default="N/A"):
                                 if col_name in row.index:
                                     val = row[col_name]
@@ -979,7 +1009,7 @@ else:
                             for key in psychomotor_keys:
                                 psychomotor_ratings[key] = safe_get(summary_row, key)
 
-                    # 3. BUILD COGNITIVE PERFORMANCE DOMAIN TABLES
+                    # 4. BUILD COGNITIVE PERFORMANCE DOMAIN TABLES
                     def evaluate_score_grade(score):
                         if pd.isna(score):
                             return "F", "Poor result"
@@ -995,9 +1025,24 @@ else:
                         else:
                             return "F", "Poor result"
 
-                    total_marks_obtained = student_subject_records["Term_Total"].sum() if not student_subject_records.empty else 0.000
+                    total_marks_obtained = student_subject_records["Term_Total"].sum() if not student_subject_records.empty else 0.0
                     total_subjects_offered = len(student_subject_records)
-                    total_mark_obtainable = total_subjects_offered * 100.000
+                    total_mark_obtainable = total_subjects_offered * 100.0
+
+                    # Pre-calculate totals across older terms for 3rd term comparative metrics
+                    term_1_totals = {}
+                    term_2_totals = {}
+                    if is_third_term and grade_records is not None and not grade_records.empty:
+                        student_all_grades = grade_records[grade_records["Student_ID"].astype(str).str.strip().str.lower() == student_id.lower()]
+                        for _, g_row in student_all_grades.iterrows():
+                            term_val = str(g_row.get("Term", "")).strip().lower()
+                            subj_val = g_row.get("Subject")
+                            score_val = pd.to_numeric(g_row.get("Term_Total"), errors="coerce")
+                            if pd.notna(score_val):
+                                if "1st" in term_val or "first" in term_val:
+                                    term_1_totals[subj_val] = score_val
+                                elif "2nd" in term_val or "second" in term_val:
+                                    term_2_totals[subj_val] = score_val
 
                     total_subjects_passed = 0
                     total_subjects_failed = 0
@@ -1015,66 +1060,160 @@ else:
                         exam_num = pd.to_numeric(exam, errors="coerce")
                         total_num = pd.to_numeric(total, errors="coerce")
 
-                        grade, comment = evaluate_score_grade(total_num)
                         if pd.notna(total_num):
                             if total_num >= min_passing_score:
                                 total_subjects_passed += 1
                             else:
                                 total_subjects_failed += 1
 
-                        cognitive_rows.append({
-                            "Subject": subj,
-                            "1st CA (20)": ca1_num,
-                            "2nd CA (20)": ca2_num,
-                            "Exam (60)": exam_num,
-                            "Total (100)": total_num,
-                            "Grade": grade,
-                            "Subject Rank": row.get("Subject_Rank", "N/A"),
-                            "Comment": comment
-                        })
+                        if is_third_term:
+                            t1_total = term_1_totals.get(subj, 0.0)
+                            t2_total = term_2_totals.get(subj, 0.0)
+                            t3_total = total_num if pd.notna(total_num) else 0.0
+                            
+                            # Session Average calculation
+                            session_avg_val = (t1_total + t2_total + t3_total) / 3.0
+                            grade, comment = evaluate_score_grade(session_avg_val)
+
+                            # Subject Rank mapped dynamically on Session Average
+                            subj_class_grades = class_session_grades[class_session_grades["Subject"] == subj].copy()
+                            subj_student_avgs = subj_class_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                            subj_student_avgs.columns = ["Student_ID", "Avg_Score"]
+                            subj_student_avgs["Rank"] = subj_student_avgs["Avg_Score"].rank(ascending=False, method="min")
+                            
+                            subj_rank_row = subj_student_avgs[subj_student_avgs["Student_ID"] == student_id]
+                            subject_rank_str = to_ordinal(int(subj_rank_row["Rank"].values[0])) if not subj_rank_row.empty else "N/A"
+
+                            cognitive_rows.append({
+                                "Subject": subj,
+                                "1st Term": t1_total,
+                                "2nd Term": t2_total,
+                                "1st CA (20)": ca1_num,
+                                "2nd CA (20)": ca2_num,
+                                "Exam (60)": exam_num,
+                                "Total (100)": total_num,
+                                "Session Average": session_avg_val,
+                                "Grade": grade,
+                                "Subject Rank": subject_rank_str,
+                                "Comment": comment
+                            })
+                        else:
+                            grade, comment = evaluate_score_grade(total_num)
+                            cognitive_rows.append({
+                                "Subject": subj,
+                                "1st CA (20)": ca1_num,
+                                "2nd CA (20)": ca2_num,
+                                "Exam (60)": exam_num,
+                                "Total (100)": total_num,
+                                "Grade": grade,
+                                "Subject Rank": row.get("Subject_Rank", "N/A"),
+                                "Comment": comment
+                            })
 
                     cognitive_df = pd.DataFrame(cognitive_rows)
 
-                    # 4. RENDER ASSESSMENT REPORT CARD UI
-                    st.write("NO LIMITS SECONDARY SCHOOL")
-                    st.caption("64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.")
-                    st.write("End of Term Assessment Report")
-                    st.write("Section: JUNIOR SECONDARY SCHOOL SECTION")
+                    # 5. RENDER ASSESSMENT REPORT CARD UI
+                    st.markdown(
+                        '<div style="text-align: center; font-size: 16px; font-weight: bold; color: #FF0000; margin-bottom: 2px;">NO LIMITS SECONDARY SCHOOL</div>', 
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        '<div style="text-align: center; font-style: italic; font-size: 12px; color: #0000FF; margin-bottom: 8px;">64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.</div>', 
+                        unsafe_allow_html=True
+                    )
+                    st.markdown(
+                        '<div style="text-align: center; font-size: 13px; font-weight: bold; margin-bottom: 4px;">End of Term Assessment Report</div>', 
+                        unsafe_allow_html=True
+                    )
+                    
+                    # Dynamically resolve section based on Class
+                    section = "JUNIOR SECONDARY SCHOOL SECTION" if "JSS" in str(student_class).upper() else "SENIOR SECONDARY SCHOOL SECTION"
+                    st.markdown(
+                        f'<div style="text-align: center; font-size: 12px; margin-bottom: 12px;">Section: {section}</div>', 
+                        unsafe_allow_html=True
+                    )
 
-                    col_card1, col_card2, col_card3 = st.columns(3)
+                    # Student's Name row
+                    st.markdown(
+                        f'<div style="font-size: 14px; font-weight: bold; margin-bottom: 12px;">Student\'s Name: {student_name}</div>', 
+                        unsafe_allow_html=True
+                    )
+
+                    # Demographic grid using 4 columns
+                    col_card1, col_card2, col_card3, col_card4 = st.columns(4)
                     with col_card1:
-                        st.write(f"Student Name: {student_name}")
-                        st.write(f"Class Room: {student_class}")
-                        st.write(f"Gender Group: {student_gender}")
+                        st.markdown(
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Room:</span> <span style="font-weight: bold; opacity: 1.0;">{student_class}</span></div>'
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Code:</span> <span style="font-weight: bold; opacity: 1.0;">{student_id}</span></div>', 
+                            unsafe_allow_html=True
+                        )
                     with col_card2:
-                        st.write(f"Session: {current_year}")
-                        st.write(f"Term Period: {current_term}")
-                        st.write(f"Student Code: {student_id}")
+                        st.markdown(
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Gender Group:</span> <span style="font-weight: bold; opacity: 1.0;">{student_gender}</span></div>'
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Days Present:</span> <span style="font-weight: bold; opacity: 1.0;">{attendance_present}</span></div>'
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Days Absent:</span> <span style="font-weight: bold; opacity: 1.0;">{attendance_absent}</span></div>', 
+                            unsafe_allow_html=True
+                        )
                     with col_card3:
-                        st.write(f"School Opened: {attendance_opened}")
-                        st.write(f"Days Present: {attendance_present}")
-                        st.write(f"Days Absent: {attendance_absent}")
+                        st.markdown(
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Session:</span> <span style="font-weight: bold; opacity: 1.0;">{current_year}</span></div>'
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">School Opened:</span> <span style="font-weight: bold; opacity: 1.0;">{attendance_opened}</span></div>', 
+                            unsafe_allow_html=True
+                        )
+                    with col_card4:
+                        st.markdown(
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Term Period:</span> <span style="font-weight: bold; opacity: 1.0;">{current_term}</span></div>'
+                            f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Total Classmates:</span> <span style="font-weight: bold; opacity: 1.0;">{total_class_size}</span></div>', 
+                            unsafe_allow_html=True
+                        )
 
-                    col_metric1, col_metric2, col_metric3 = st.columns(3)
-                    with col_metric1:
-                        st.metric("Student's Average", f"{student_avg:.3f}%")
-                        st.write(f"Total Marks Obtained: {total_marks_obtained:.3f}")
-                    with col_metric2:
-                        st.metric("Class Average", f"{class_avg:.3f}%")
-                        st.write(f"Total Mark Obtainable: {total_mark_obtainable:.3f}")
-                    with col_metric3:
-                        st.metric("Position in Class", student_position)
-                        st.write(f"Total Classmates: {total_class_size}")
+                    # 6. RENDER SUMMARY METRIC BLOCKS (Conditional formatting for 3rd Term vs. Standard Terms)
+                    if is_third_term:
+                        col_term_sum, col_session_sum = st.columns(2)
+                        with col_term_sum:
+                            st.markdown('<div style="color: #0000FF; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Term Summary</div>', unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Term Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Term:</span> <span style="font-weight: bold; opacity: 1.0;">{class_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Position for the Term:</span> <span style="font-weight: bold; opacity: 1.0;">{student_position}</span></div>',
+                                unsafe_allow_html=True
+                            )
+                        with col_session_sum:
+                            st.markdown('<div style="color: #0000FF; font-size: 12px; font-weight: bold; margin-bottom: 4px;">Session Summary</div>', unsafe_allow_html=True)
+                            st.markdown(
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Student Session Average:</span> <span style="font-weight: bold; opacity: 1.0;">{student_session_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Average for the Session:</span> <span style="font-weight: bold; opacity: 1.0;">{class_session_avg:.2f}%</span></div>'
+                                f'<div style="white-space: nowrap; font-size: 12px; margin-bottom: 4px;"><span style="opacity: 0.65;">Class Position for the Session:</span> <span style="font-weight: bold; opacity: 1.0;">{student_session_position}</span></div>',
+                                unsafe_allow_html=True
+                            )
+                    else:
+                        col_metric1, col_metric2, col_metric3 = st.columns(3)
+                        with col_metric1:
+                            st.metric("Student's Average", f"{student_avg:.2f}%")
+                            st.write(f"Total Marks Obtained: {total_marks_obtained:.1f}")
+                        with col_metric2:
+                            st.metric("Class Average", f"{class_avg:.2f}%")
+                            st.write(f"Total Mark Obtainable: {total_mark_obtainable:.1f}")
+                        with col_metric3:
+                            st.metric("Position in Class", student_position)
+                            st.write(f"Total Classmates: {total_class_size}")
 
-                    st.write("Cognitive Domain Scores Matrix")
+                    # 7. RENDER COGNITIVE SCORE TABLES
+                    st.markdown("**Cognitive Domain Scores**")
                     if not cognitive_df.empty:
-                        # Presenting table values rounded to exactly 3 decimal places
-                        formatted_cognitive_df = cognitive_df.style.format({
-                            "1st CA (20)": "{:.3f}",
-                            "2nd CA (20)": "{:.3f}",
-                            "Exam (60)": "{:.3f}",
-                            "Total (100)": "{:.3f}"
-                        }, na_rep="Absent")
+                        # Precision formats: 1 decimal place format dictionaries
+                        format_dict = {
+                            "1st CA (20)": "{:.1f}",
+                            "2nd CA (20)": "{:.1f}",
+                            "Exam (60)": "{:.1f}",
+                            "Total (100)": "{:.1f}"
+                        }
+                        if is_third_term:
+                            format_dict["1st Term"] = "{:.1f}"
+                            format_dict["2nd Term"] = "{:.1f}"
+                            format_dict["Session Average"] = "{:.1f}"
+
+                        formatted_cognitive_df = cognitive_df.style.format(format_dict, na_rep="Absent")
                         st.dataframe(formatted_cognitive_df, hide_index=True, use_container_width=True)
                     else:
                         st.warning("No academic score records found for this student profile.")
@@ -1087,45 +1226,62 @@ else:
                     with col_subj3:
                         st.write(f"Total Subjects Failed: {total_subjects_failed}")
 
+                    # 8. RENDER SHORTENED AFFECTIVE & PSYCHOMOTOR DATA TABLES
                     col_beh1, col_beh2 = st.columns(2)
                     with col_beh1:
-                        st.write("Affective Behaviors Table")
+                        st.write("Affective Behaviors")
                         affective_list = [{"Affective Area": k.replace("_", " ").upper(), "Rating Scale": affective_ratings[k]} for k in affective_keys]
-                        st.dataframe(pd.DataFrame(affective_list), hide_index=True, use_container_width=True)
+                        st.dataframe(pd.DataFrame(affective_list), hide_index=True, use_container_width=True, height=200)
 
                     with col_beh2:
-                        st.write("Psychomotor Skills Table")
+                        st.write("Psychomotor Skills")
                         psychomotor_list = [{"Psychomotor Skill": k.replace("_", " ").upper(), "Rating Scale": psychomotor_ratings[k]} for k in psychomotor_keys]
-                        st.dataframe(pd.DataFrame(psychomotor_list), hide_index=True, use_container_width=True)
+                        st.dataframe(pd.DataFrame(psychomotor_list), hide_index=True, use_container_width=True, height=200)
 
-                    col_legend1, col_legend2 = st.columns(2)
-                    with col_legend1:
-                        st.write("Behavioral Legend Keys")
-                        scale_legend = [
-                            {"Value": "5", "Description": "Excellent"},
-                            {"Value": "4", "Description": "Good"},
-                            {"Value": "3", "Description": "Average"},
-                            {"Value": "2", "Description": "Poor"},
-                            {"Value": "1", "Description": "Fair"}
-                        ]
-                        st.dataframe(pd.DataFrame(scale_legend), hide_index=True, use_container_width=True)
-                    with col_legend2:
-                        st.write("Academic Grading Keys Legend")
-                        grading_legend = [
-                            {"Grade": "A", "Score Bound": "80 - 100", "Remarks": "Excellent"},
-                            {"Grade": "B", "Score Bound": "70 - 79", "Remarks": "Good Result"},
-                            {"Grade": "C", "Score Bound": "50 - 69", "Remarks": "Fair"},
-                            {"Grade": "D", "Score Bound": "40 - 49", "Remarks": "Marginal"},
-                            {"Grade": "F", "Score Bound": "0 - 39", "Remarks": "Poor result"}
-                        ]
-                        st.dataframe(pd.DataFrame(grading_legend), hide_index=True, use_container_width=True)
+                    # 9. RENDER COMBINED HORIZONTAL LEGEND MATRIX TABLE
+                    st.write("Legends Keys Summary")
+                    combined_legend = pd.DataFrame([
+                        {
+                            "Legend Category": "Behavioural Keys",
+                            "Scale / Range Mapping": "Excellent:5, Good:4, Average:3, Poor:2, Fair:1"
+                        },
+                        {
+                            "Legend Category": "Academic Keys",
+                            "Scale / Range Mapping": "A:80-100, B:70-79, C:50-69, D:40-49, F:0-39"
+                        }
+                    ])
+                    st.dataframe(combined_legend, hide_index=True, use_container_width=True)
 
-                    st.write("Administrative Endorsements and Remarks")
-                    col_comment1, col_comment2 = st.columns(2)
-                    with col_comment1:
-                        st.write(f"Class Teacher Remarks: {teacher_comment}")
-                    with col_comment2:
-                        st.write(f"School Principal Remarks: {principal_comment}")
+                    # 10. RESOLVE CLASS TEACHER NAME DYNAMICALLY & RENDER ENDORSEMENT STATEMENT MATRIX
+                    class_teacher_name = "N/A"
+                    # Pull values dynamically using active workspace variables
+                    mapping_df = locals().get("class_teacher_mapping", globals().get("class_teacher_mapping"))
+                    registry_df = locals().get("teacher_registry", globals().get("teacher_registry"))
+
+                    if mapping_df is not None and not mapping_df.empty:
+                        class_match = mapping_df[mapping_df["Class"].astype(str).str.strip().str.lower() == str(student_class).strip().lower()]
+                        if not class_match.empty:
+                            teacher_id = class_match.iloc[0].get("Teacher_ID")
+                            if teacher_id and registry_df is not None and not registry_df.empty:
+                                teacher_match = registry_df[registry_df["Teacher_ID"].astype(str).str.strip().str.lower() == str(teacher_id).strip().lower()]
+                                if not teacher_match.empty:
+                                    name_col = next((col for col in registry_df.columns if "name" in col.lower()), "Teacher_Name")
+                                    class_teacher_name = str(teacher_match.iloc[0].get(name_col, "N/A"))
+
+                    admin_endorsements_data = [
+                        {
+                            "Role / Endorsement": "Class Teacher Comment",
+                            "Remarks": teacher_comment,
+                            "Authorized Signatory": class_teacher_name
+                        },
+                        {
+                            "Role / Endorsement": "School Principal Remarks",
+                            "Remarks": principal_comment,
+                            "Authorized Signatory": "Mrs Joy Paul"
+                        }
+                    ]
+                    
+                    st.dataframe(pd.DataFrame(admin_endorsements_data), hide_index=True, use_container_width=True)
 
                 else:
                     st.error("The Student ID or Access Code could not be found in the registry database.")
