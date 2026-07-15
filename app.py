@@ -1227,16 +1227,16 @@ else:
                         st.write(f"Total Subjects Failed: {total_subjects_failed}")
 
                     # 8. RENDER SHORTENED AFFECTIVE & PSYCHOMOTOR DATA TABLES
-                    """col_beh1, col_beh2 = st.columns(2)
-                    with col_beh1:
-                        st.write("Affective Behaviors")
-                        affective_list = [{"Affective Area": k.replace("_", " ").upper(), "Rating Scale": affective_ratings[k]} for k in affective_keys]
-                        st.dataframe(pd.DataFrame(affective_list), hide_index=True, use_container_width=True, height=200)
+                    #col_beh1, col_beh2 = st.columns(2)
+                    #with col_beh1:
+                        #st.write("Affective Behaviors")
+                        #affective_list = [{"Affective Area": k.replace("_", " ").upper(), "Rating Scale": affective_ratings[k]} for k in affective_keys]
+                        #st.dataframe(pd.DataFrame(affective_list), hide_index=True, use_container_width=True, height=200)
 
-                    with col_beh2:
-                        st.write("Psychomotor Skills")
-                        psychomotor_list = [{"Psychomotor Skill": k.replace("_", " ").upper(), "Rating Scale": psychomotor_ratings[k]} for k in psychomotor_keys]
-                        st.dataframe(pd.DataFrame(psychomotor_list), hide_index=True, use_container_width=True, height=200)"""
+                    #with col_beh2:
+                        #st.write("Psychomotor Skills")
+                        #psychomotor_list = [{"Psychomotor Skill": k.replace("_", " ").upper(), "Rating Scale": psychomotor_ratings[k]} for k in psychomotor_keys]
+                        #st.dataframe(pd.DataFrame(psychomotor_list), hide_index=True, use_container_width=True, height=200)
 
                     # 9. RENDER COMBINED HORIZONTAL LEGEND MATRIX TABLE
                     st.write("Legends Keys Summary")
