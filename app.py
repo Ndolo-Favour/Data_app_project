@@ -1243,11 +1243,11 @@ else:
                     combined_legend = pd.DataFrame([
                         {
                             "Legend Category": "Behavioural Keys",
-                            "Scale / Range Mapping": "Excellent:5, Good:4, Average:3, Poor:2, Fair:1"
+                            "Scale / Range Mapping": "Excellent=5,  Good=4,  Average=3,  Poor=2,  Fair=1"
                         },
                         {
                             "Legend Category": "Academic Keys",
-                            "Scale / Range Mapping": "A:80-100, B:70-79, C:50-69, D:40-49, F:0-39"
+                            "Scale / Range Mapping": "A=(80-100),  B=(70-79),  C=(50-69),  D=(40-49),  F=(0-39)"
                         }
                     ])
                     st.dataframe(combined_legend, hide_index=True, use_container_width=True)
