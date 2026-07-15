@@ -793,10 +793,10 @@ else:
                                         else:
                                             st.caption("Awaiting entries. Class analytics will compute automatically once scores are added.")
 
-                                        transmission_df = edited_grades_df.copy()
+                                        transmission_df = transmission_df.rename(columns={"1CA": "CA1", "2CA": "CA2"})
                                         transmission_df["Subject"] = selected_subject
                                         transmission_df["Term"] = current_term
-                                        transmission_df["Term_Total"] = transmission_df["1CA"].fillna(0) + transmission_df["2CA"].fillna(0) + transmission_df["Exam"].fillna(0)
+                                        transmission_df["Term_Total"] = transmission_df["CA1"].fillna(0) + transmission_df["CA2"].fillna(0) + transmission_df["Exam"].fillna(0)
 
                                         if save_draft_action:
                                             with st.spinner("Synchronizing draft with cloud spreadsheet..."):
