@@ -1497,6 +1497,7 @@ else:
                         data=pdf_data,
                         file_name=f"{student_name}_Result.pdf",
                         mime="application/pdf"
+                    )
                 
                 else:
                     st.error("The Student ID or Access Code could not be found in the registry database.")
