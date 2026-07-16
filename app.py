@@ -149,7 +149,7 @@ else:
 
     user_role = st.sidebar.radio(
         "Select your access portal:",
-        ["Admin Dashboard", "Teacher Portal", "Student Results View"]
+        ["Admin Dashboard", "Teacher Portal", "Term Summaries", "Student Results View"]
     )
 
     if user_role == "Admin Dashboard":
@@ -884,6 +884,127 @@ else:
         else:
             st.info("Please enter your assigned staff verification code to unlock your dashboard.")
 
+    elif user_role == "Term Summaries":
+        st.title("Form Teacher Term Summaries")
+
+        summary_pin = st.text_input("Enter your unique Access PIN:", type="password", key="summary_portal_pin")
+
+        if summary_pin:
+            if teacher_registry is None or class_teacher_mapping is None:
+                st.error("Critical Error: Required tracking tables are missing or could not be loaded.")
+            else:
+                target_column = "Teacher_ID"
+                valid_pins = teacher_registry[target_column].astype(str).values
+
+                if summary_pin in valid_pins:
+                    current_user = teacher_registry[teacher_registry[target_column].astype(str) == summary_pin].iloc[0]
+                    staff_role = current_user.get("Staff_role", "")
+                    teacher_id_str = str(current_user.get("Teacher_ID", ""))
+                    teacher_name = current_user.get("Teacher_Name", "Teacher")
+
+                    is_admin = staff_role == "Admin"
+                    is_form_teacher = teacher_id_str in class_teacher_mapping["Teacher_ID"].astype(str).values
+
+                    if not (is_admin or is_form_teacher):
+                        st.error("You do not have access to this page.")
+                    else:
+                        st.success(f"Access Granted. Welcome, {teacher_name}!")
+                        st.info(f"Active Session Context: {current_year} and {current_term}")
+                        
+                        if is_admin and not is_form_teacher:
+                            assigned_classes = class_teacher_mapping["Class"].unique().tolist()
+                        else:
+                            assigned_classes = class_teacher_mapping[class_teacher_mapping["Teacher_ID"].astype(str) == teacher_id_str]["Class"].unique().tolist()
+                            
+                        if not assigned_classes:
+                            st.warning("You are not currently mapped as a form teacher to any class.")
+                        else:
+                            selected_class = st.selectbox("Select assigned class roster:", assigned_classes)
+                            
+                            st.subheader(f"Term Summaries Entry: {selected_class}")
+                            
+                            if master_registry is not None:
+                                class_students = master_registry[master_registry["Class"] == selected_class].copy()
+                                
+                                if class_students.empty:
+                                    st.warning("No students found registered for this specific class arm.")
+                                else:
+                                    display_name_col = "Student_Name" if "Student_Name" in class_students.columns else ("STUDENT NAME" if "STUDENT NAME" in class_students.columns else class_students.columns[1])
+                                    
+                                    current_term_grades = grade_records[(grade_records["Term"] == current_term) & (grade_records["Student_ID"].isin(class_students["Student_ID"]))].copy()
+                                    current_term_grades["Term_Total"] = pd.to_numeric(current_term_grades["Term_Total"], errors="coerce")
+                                    current_term_grades = current_term_grades[current_term_grades["Term_Total"] > 0]
+                                    
+                                    if not current_term_grades.empty:
+                                        student_avgs = current_term_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                                        student_avgs.columns = ["Student_ID", "Term_Average"]
+                                    else:
+                                        student_avgs = pd.DataFrame(columns=["Student_ID", "Term_Average"])
+                                    
+                                    editor_df = pd.merge(class_students[["Student_ID", display_name_col]], student_avgs, on="Student_ID", how="left")
+                                    editor_df["Term_Average"] = editor_df["Term_Average"].fillna(0.0)
+                                    editor_df = editor_df.sort_values(by="Term_Average", ascending=False)
+                                    
+                                    existing_summaries = term_summaries[(term_summaries["Term"] == current_term) & (term_summaries["Class"] == selected_class)]
+                                    
+                                    target_columns = [
+                                        "Teacher_Comment", "Attendance_Opened", "Attendance_Present", "Attendance_Absent",
+                                        "Punctuality", "Neatness", "Leadership", "Helping_Others", "Attentiveness", 
+                                        "Attitude_to_Work", "Handwriting", "Verbal_Fluency", "Games", "Sport", 
+                                        "Handling_Tools", "Drawing_Painting"
+                                    ]
+                                    
+                                    for col in target_columns:
+                                        if col not in existing_summaries.columns:
+                                            existing_summaries[col] = ""
+                                            
+                                    merged_data = pd.merge(editor_df, existing_summaries[["Student_ID"] + target_columns], on="Student_ID", how="left")
+                                    for col in target_columns:
+                                        merged_data[col] = merged_data[col].fillna("")
+                                        
+                                    st.write("Please fill in the remarks, attendance data, and affective/psychomotor skills. The grid is sorted dynamically by the current Term Average.")
+                                    
+                                    with st.form(key=f"term_summary_form_{selected_class}"):
+                                        edited_summaries = st.data_editor(
+                                            merged_data,
+                                            hide_index=True,
+                                            use_container_width=True,
+                                            column_config={
+                                                "Student_ID": st.column_config.TextColumn("Student ID", disabled=True),
+                                                display_name_col: st.column_config.TextColumn("Student Name", disabled=True),
+                                                "Term_Average": st.column_config.NumberColumn("Term Average", format="%.3f", disabled=True)
+                                            }
+                                        )
+                                        
+                                        if st.form_submit_button("Commit Term Summaries"):
+                                            with st.spinner("Syncing behavioural logs to the centralized database..."):
+                                                transmission_df = edited_summaries.copy()
+                                                transmission_df["Term"] = current_term
+                                                transmission_df["Class"] = selected_class
+                                                transmission_df["Summary_ID"] = transmission_df["Student_ID"].astype(str) + "_" + current_term.replace(" ", "")
+                                                
+                                                columns_to_keep = ["Summary_ID", "Student_ID", "Term", "Class"] + target_columns
+                                                transmission_df = transmission_df[columns_to_keep]
+                                                
+                                                log_text = f"Form Teacher {teacher_name} updated term summaries for {selected_class}"
+                                                success, message = write_back_to_sheets(
+                                                    dataframe=transmission_df,
+                                                    sheet_name="term_summaries",
+                                                    action_type="upsert_rows",
+                                                    extra_metadata={"Class": selected_class, "Term": current_term},
+                                                    log_message=log_text
+                                                )
+                                                
+                                                if success:
+                                                    st.success("Term summaries successfully saved to the master records!")
+                                                    st.cache_data.clear()
+                                                else:
+                                                    st.error(f"Failed to save summary sheet: {message}")
+                            else:
+                                st.error("Master registry data table is missing.")
+                else:
+                    st.error("Invalid verification PIN. Access denied.")
+    
     elif user_role == "Student Results View":
         st.title("Student Term Performance Portal")
         st.info(f"Active Session: {current_year} | {current_term}")
