@@ -6,7 +6,7 @@ import zipfile
 import io
 from fpdf import FPDF
 
-API_URL = "https://script.google.com/macros/s/AKfycbz3_-4lvgaBmXwZYSX2rQ0yGgvR_-0qHTf15TI4vH4tjp_4CgTWWmmAtbpfpiQwJR0s/exec"
+API_URL = "https://script.google.com/macros/s/AKfycbw4pSvjpnf4tcnusDauL39SujQpFpvGOTRuszPVZT40DuJ9ADj-xGRu8bjiCSgHoUf9/exec"
 
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
