@@ -1154,14 +1154,19 @@ else:
                                 psychomotor_ratings[key] = safe_get(summary_row, key)
 
                     # Resolve Principal's comments using the globally registered function
-                    principal_comments_func = globals().get("get_principal_comments", locals().get("get_principal_comments"))
-                    if principal_comments_func is not None:
-                        active_avg = student_session_avg if is_third_term else student_avg
+                    active_avg = student_session_avg if is_third_term else student_avg
+                    try:
+                        # Attempt to call the function directly
                         principal_comment = get_principal_comment(active_avg, student_name)
-
-                    if not principal_comment or str(principal_comment).strip() == "":
+                    except Exception as e:
+                        # If the function itself crashes, log it for debugging
+                        principal_comment = None
+                        st.write(f"Debug: Error in get_principal_comment - {str(e)}")
+                    
+                    # Fallback check
+                    if principal_comment is None or str(principal_comment).strip() == "":
                         principal_comment = "No comment logged."
-
+                    
                     # 4. BUILD COGNITIVE PERFORMANCE DOMAIN TABLES
                     def evaluate_score_grade(score):
                         if pd.isna(score):
