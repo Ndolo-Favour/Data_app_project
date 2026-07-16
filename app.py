@@ -54,7 +54,7 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
     except Exception as e:
         return False, str(e)
 
-def generate_pdf_report(student_name, student_class, current_term, current_year, scores_df, 
+def generate_pdf_report(student_name, student_class, term, year, scores_df, 
                         teacher_comment, principal_comment, class_teacher_name):
     pdf = FPDF()
     pdf.add_page()
@@ -1485,8 +1485,8 @@ else:
                     pdf_data = generate_pdf_report(
                         student_name,
                         student_class,
-                        term,
-                        year,
+                        current_term,
+                        current_year,
                         scores_df,
                         teacher_comment,
                         principal_comment,
