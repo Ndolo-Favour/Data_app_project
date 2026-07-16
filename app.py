@@ -1157,7 +1157,7 @@ else:
                     principal_comments_func = globals().get("get_principal_comments", locals().get("get_principal_comments"))
                     if principal_comments_func is not None:
                         active_avg = student_session_avg if is_third_term else student_avg
-                        principal_comment = principal_comments_func(active_avg)
+                        principal_comment = get_principal_comment(active_avg, student_name)
 
                     if not principal_comment or str(principal_comment).strip() == "":
                         principal_comment = "No comment logged."
