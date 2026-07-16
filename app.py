@@ -1238,7 +1238,7 @@ else:
                             st.write(f"Total Classmates: {total_class_size}")
 
                     # 7. RENDER COGNITIVE SCORE TABLES
-                    st.markdown("#### Cognitive Domain Scores")
+                    st.markdown("##### Cognitive Domain Scores")
                     if not cognitive_df.empty:
                         # Precision formats: 2 decimal place format dictionaries
                         format_dict = {
