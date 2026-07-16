@@ -54,29 +54,33 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
     except Exception as e:
         return False, str(e)
 
-def generate_pdf_report(student_name, student_class, term, year, scores_df):
+def generate_pdf_report(student_name, student_class, term, year, scores_df, teacher_comment, principal_comment, class_teacher_name):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=16)
-    pdf.cell(200, 10, txt="No Limits Sec. School", ln=True, align="C")
     
-    pdf.set_font("Arial", size=12)
+    #1. Header
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(200, 10, txt="No Limits Sec. School", ln=True, align="C")    
+    pdf.set_font("Arial", "", 12)
     pdf.cell(200, 10, txt=f"Term Report: {term} ({year})", ln=True, align="C")
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"Student Name: {student_name}", ln=True, align="L")
-    pdf.cell(200, 10, txt=f"Class: {student_class}", ln=True, align="L")
-    pdf.ln(10)
-    
-    pdf.set_font("Arial", size=10)
+    pdf.ln(5)
+
+    #2. Student Info
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(200, 10, txt=f"Student: {student_name} | Class: {student_class}", ln=True, align="L")
+    pdf.ln(5)
+
+    #3. Table
+    pdf.set_font("Arial", "B", 10)
+    # Define widths for table columns
     pdf.cell(60, 10, "Subject", border=1)
     pdf.cell(30, 10, "CA 1", border=1, align="C")
     pdf.cell(30, 10, "CA 2", border=1, align="C")
     pdf.cell(30, 10, "Exam", border=1, align="C")
     pdf.cell(30, 10, "Total", border=1, align="C")
     pdf.ln()
-    
+
+    pdf.set_font("Arial", '', 10)
     for idx, row in scores_df.iterrows():
         pdf.cell(60, 10, str(row.get("Subject", "")), border=1)
         pdf.cell(30, 10, str(row.get("CA1", "")), border=1, align="C")
@@ -84,10 +88,40 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df):
         pdf.cell(30, 10, str(row.get("Exam", "")), border=1, align="C")
         pdf.cell(30, 10, str(row.get("Term_Total", "")), border=1, align="C")
         pdf.ln()
-        
+
+    pdf.ln(10) # Space before comments
+
+    # 4. Comments (Side-by-side)
+    y_before_comments = pdf.get_y()
+    col_width = 95
+
+    # Render Teacher Column
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(col_width, 7, "Class Teacher Comment", ln=0)
+    pdf.cell(col_width, 7, "Principal Remarks", ln=1)
+    pdf.set_font("Arial", '', 8.5)
+    # Use multi_cell to wrap text within the column width
+    # We save the Y position for the teacher column
+    y_start = pdf.get_y()
+    pdf.multi_cell(col_width, 5, str(teacher_comment), border=0)
+    y_teacher_end = pdf.get_y()
+    
+    # Return to top for Principal column
+    pdf.set_xy(105, y_start) 
+    pdf.multi_cell(col_width, 5, str(principal_comment), border=0)
+    y_principal_end = pdf.get_y()
+    
+    # Move cursor to the bottom of the tallest column
+    pdf.set_y(max(y_teacher_end, y_principal_end) + 5)
+    
+    # 5. Signatories
+    pdf.set_font("Arial", 'B', 9)
+    pdf.cell(col_width, 7, f"Signed: {class_teacher_name}", ln=0)
+    pdf.cell(col_width, 7, "Signed: Mrs Joy Paul", ln=1)
+
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
-
+    
 def get_principal_comment(average, student_name):
     if average >= 90:
         return f"{student_name} has demonstrated outstanding academic excellence and a commendable work ethic this term."
@@ -1434,17 +1468,35 @@ else:
                         }
                     ]
                     
-                    st.subheader("Teacher and Principal Remarks")
+                    st.subheader("###Teacher and Principal Remarks")
+                    col1, col2 = st.columns(2)
                     
-                    st.write("Class Teacher Comment")
-                    with st.container(border=True):
+                    with col1:
+                        st.write("Class Teacher Comment")
                         st.write(teacher_comment)
                         st.write("Signatory: " + class_teacher_name)
-
-                    st.write("School Principal Remarks")
-                    with st.container(border=True):
+                    
+                    with col2:
+                        st.write("School Principal Remarks")
                         st.write(principal_comment)
                         st.write("Signatory: Mrs Joy Paul")
+
+                    pdf_data = generate_pdf_report(
+                        student_name,
+                        student_class,
+                        term,
+                        year,
+                        scores_df,
+                        teacher_comment,
+                        principal_comment,
+                        class_teacher_name
+                    )
+
+                    st.download_button(
+                        label="Download Result as pdf",
+                        data=pdf_data,
+                        file_name=f"{student_name}_Result.pdf",
+                        mime="application/pdf"
                 
                 else:
                     st.error("The Student ID or Access Code could not be found in the registry database.")
