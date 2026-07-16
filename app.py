@@ -1487,7 +1487,7 @@ else:
                         student_class,
                         current_term,
                         current_year,
-                        scores_df,
+                        cognitive_df,
                         teacher_comment,
                         principal_comment,
                         class_teacher_name
