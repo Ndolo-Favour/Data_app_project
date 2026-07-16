@@ -1468,18 +1468,18 @@ else:
                         }
                     ]
                     
-                    st.subheader("###Teacher and Principal Remarks")
+                    st.write("---")
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        st.write("Class Teacher Comment")
+                        st.write("**Class Teacher Comment**")
                         st.write(teacher_comment)
-                        st.write("Signatory: " + class_teacher_name)
+                        st.write("**Signatory:** " + class_teacher_name)
                     
                     with col2:
-                        st.write("School Principal Remarks")
+                        st.write("**School Principal Remarks**")
                         st.write(principal_comment)
-                        st.write("Signatory: Mrs Joy Paul")
+                        st.write("**Signatory:** Mrs Joy Paul")
 
                     pdf_data = generate_pdf_report(
                         student_name,
@@ -1493,7 +1493,7 @@ else:
                     )
 
                     st.download_button(
-                        label="Download Result as pdf",
+                        label="Download Result as PDF",
                         data=pdf_data,
                         file_name=f"{student_name}_Result.pdf",
                         mime="application/pdf"
