@@ -1434,7 +1434,17 @@ else:
                         }
                     ]
                     
-                    st.dataframe(pd.DataFrame(admin_endorsements_data), hide_index=True, use_container_width=True)
+                    st.subheader("Teacher and Principal Remarks")
+                    
+                    st.write("Class Teacher Comment")
+                    with st.container(border=True):
+                        st.write(teacher_comment)
+                        st.write("Signatory: " + class_teacher_name)
 
+                    st.write("School Principal Remarks")
+                    with st.container(border=True):
+                        st.write(principal_comment)
+                        st.write("Signatory: Mrs Joy Paul")
+                
                 else:
                     st.error("The Student ID or Access Code could not be found in the registry database.")
