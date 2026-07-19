@@ -1626,7 +1626,7 @@ else:
                         total_offered=total_subjects_offered, 
                         total_passed=total_subjects_passed, 
                         total_failed=total_subjects_failed,
-                        scores_df=scores_df, 
+                        scores_df=cognitive_df, 
                         teacher_comment=teacher_comment, 
                         principal_comment=principal_comment, 
                         class_teacher_name=class_teacher_name
