@@ -84,7 +84,7 @@ def generate_pdf_report(
 
     # 2. Student Demographics (3-Column Layout, Font Size 8)
     pdf.set_font("Arial", "", 8)
-    col_w = 63  # 63mm per column fits nicely within the 190mm printable width
+    col_w = 63
     
     pdf.cell(col_w, 5, txt=f"Student's Name: {student_name}", ln=0)
     pdf.cell(col_w, 5, txt=f"Class Room: {class_room}", ln=0)
@@ -115,47 +115,77 @@ def generate_pdf_report(
     pdf.cell(190, 6, txt="Cognitive Domain Scores", border=1, ln=True, align="C")
     
     row_height = 5
-    pdf.cell(36, row_height, "Subject", border=1)
-    pdf.cell(14, row_height, "1st Term", border=1, align="C")
-    pdf.cell(14, row_height, "2nd Term", border=1, align="C")
-    pdf.cell(12, row_height, "1st CA", border=1, align="C")
-    pdf.cell(12, row_height, "2nd CA", border=1, align="C")
-    pdf.cell(12, row_height, "Exam", border=1, align="C")
-    pdf.cell(12, row_height, "Total", border=1, align="C")
-    pdf.cell(12, row_height, "Grade", border=1, align="C")
-    pdf.cell(16, row_height, "Rank", border=1, align="C")
-    pdf.cell(50, row_height, "Remark", border=1, align="C")
+    has_session_avg = "Session Average" in scores_df.columns
+
+    if has_session_avg:
+        pdf.cell(34, row_height, "Subject", border=1)
+        pdf.cell(13, row_height, "1st Term", border=1, align="C")
+        pdf.cell(13, row_height, "2nd Term", border=1, align="C")
+        pdf.cell(11, row_height, "1st CA", border=1, align="C")
+        pdf.cell(11, row_height, "2nd CA", border=1, align="C")
+        pdf.cell(11, row_height, "Exam", border=1, align="C")
+        pdf.cell(11, row_height, "Total", border=1, align="C")
+        pdf.cell(12, row_height, "S. Avg", border=1, align="C")
+        pdf.cell(10, row_height, "Grade", border=1, align="C")
+        pdf.cell(14, row_height, "Rank", border=1, align="C")
+        pdf.cell(50, row_height, "Remark", border=1, align="C")
+    else:
+        pdf.cell(36, row_height, "Subject", border=1)
+        pdf.cell(14, row_height, "1st Term", border=1, align="C")
+        pdf.cell(14, row_height, "2nd Term", border=1, align="C")
+        pdf.cell(12, row_height, "1st CA", border=1, align="C")
+        pdf.cell(12, row_height, "2nd CA", border=1, align="C")
+        pdf.cell(12, row_height, "Exam", border=1, align="C")
+        pdf.cell(12, row_height, "Total", border=1, align="C")
+        pdf.cell(12, row_height, "Grade", border=1, align="C")
+        pdf.cell(16, row_height, "Rank", border=1, align="C")
+        pdf.cell(50, row_height, "Remark", border=1, align="C")
     pdf.ln()
+
+    def format_whole_score(val):
+        try:
+            if pd.isna(val) or str(val).lower() == "nan" or str(val).strip() == "":
+                return ""
+            return str(int(round(float(val))))
+        except (ValueError, TypeError):
+            return str(val)
 
     for idx, row in scores_df.iterrows():
         subj = str(row.get("Subject", ""))
-        term1 = str(row.get("1st Term", "")) 
-        term2 = str(row.get("2nd Term", ""))
-        ca1 = str(row.get("1st CA (20)", row.get("CA1", "")))
-        ca2 = str(row.get("2nd CA (20)", row.get("CA2", "")))
-        exam = str(row.get("Exam (60)", row.get("Exam", "")))
-        total = str(row.get("Total (100)", row.get("Term_Total", "")))
+        term1 = format_whole_score(row.get("1st Term", "")) 
+        term2 = format_whole_score(row.get("2nd Term", ""))
+        ca1 = format_whole_score(row.get("1st CA (20)", row.get("CA1", "")))
+        ca2 = format_whole_score(row.get("2nd CA (20)", row.get("CA2", "")))
+        exam = format_whole_score(row.get("Exam (60)", row.get("Exam", "")))
+        total = format_whole_score(row.get("Total (100)", row.get("Term_Total", "")))
         grade = str(row.get("Grade", ""))
         rank = str(row.get("Subject Rank", ""))
         remark = str(row.get("Comment", ""))
 
-        term1 = "" if term1.lower() == "nan" else term1
-        term2 = "" if term2.lower() == "nan" else term2
-        ca1 = "" if ca1.lower() == "nan" else ca1
-        ca2 = "" if ca2.lower() == "nan" else ca2
-        exam = "" if exam.lower() == "nan" else exam
-        total = "" if total.lower() == "nan" else total
-
-        pdf.cell(36, row_height, subj[:20], border=1)
-        pdf.cell(14, row_height, term1, border=1, align="C")
-        pdf.cell(14, row_height, term2, border=1, align="C")
-        pdf.cell(12, row_height, ca1, border=1, align="C")
-        pdf.cell(12, row_height, ca2, border=1, align="C")
-        pdf.cell(12, row_height, exam, border=1, align="C")
-        pdf.cell(12, row_height, total, border=1, align="C")
-        pdf.cell(12, row_height, grade, border=1, align="C")
-        pdf.cell(16, row_height, rank, border=1, align="C")
-        pdf.cell(50, row_height, remark[:28], border=1, align="C")
+        if has_session_avg:
+            s_avg = format_whole_score(row.get("Session Average", ""))
+            pdf.cell(34, row_height, subj[:20], border=1)
+            pdf.cell(13, row_height, term1, border=1, align="C")
+            pdf.cell(13, row_height, term2, border=1, align="C")
+            pdf.cell(11, row_height, ca1, border=1, align="C")
+            pdf.cell(11, row_height, ca2, border=1, align="C")
+            pdf.cell(11, row_height, exam, border=1, align="C")
+            pdf.cell(11, row_height, total, border=1, align="C")
+            pdf.cell(12, row_height, s_avg, border=1, align="C")
+            pdf.cell(10, row_height, grade, border=1, align="C")
+            pdf.cell(14, row_height, rank, border=1, align="C")
+            pdf.cell(50, row_height, remark[:28], border=1, align="C")
+        else:
+            pdf.cell(36, row_height, subj[:20], border=1)
+            pdf.cell(14, row_height, term1, border=1, align="C")
+            pdf.cell(14, row_height, term2, border=1, align="C")
+            pdf.cell(12, row_height, ca1, border=1, align="C")
+            pdf.cell(12, row_height, ca2, border=1, align="C")
+            pdf.cell(12, row_height, exam, border=1, align="C")
+            pdf.cell(12, row_height, total, border=1, align="C")
+            pdf.cell(12, row_height, grade, border=1, align="C")
+            pdf.cell(16, row_height, rank, border=1, align="C")
+            pdf.cell(50, row_height, remark[:28], border=1, align="C")
         pdf.ln()
 
     pdf.ln(3)
@@ -1477,24 +1507,42 @@ else:
                     # 7. RENDER COGNITIVE SCORE TABLES
                     st.markdown("##### Cognitive Domain Scores")
                     if not cognitive_df.empty:
-                        # Precision formats: 2 decimal place format dictionaries
+                        # Precision formats changed to whole numbers
                         format_dict = {
-                            "1st CA (20)": "{:.2f}",
-                            "2nd CA (20)": "{:.2f}",
-                            "Exam (60)": "{:.2f}",
-                            "Total (100)": "{:.2f}"
+                            "1st CA (20)": "{:.0f}",
+                            "2nd CA (20)": "{:.0f}",
+                            "Exam (60)": "{:.0f}",
+                            "Total (100)": "{:.0f}"
                         }
                         if is_third_term:
-                            format_dict["1st Term"] = "{:.2f}"
-                            format_dict["2nd Term"] = "{:.2f}"
-                            format_dict["Session Average"] = "{:.2f}"
+                            format_dict["1st Term"] = "{:.0f}"
+                            format_dict["2nd Term"] = "{:.0f}"
+                            format_dict["Session Average"] = "{:.0f}"
 
-                        # Format styler mapping missing numbers to "abs"
-                        formatted_cognitive_df = cognitive_df.style.format(format_dict, na_rep="abs")
+                        def assign_grade_color(val):
+                            color = "black"
+                            if val == "A":
+                                color = "green"
+                            elif val == "B":
+                                color = "blue"
+                            elif val == "D":
+                                color = "yellow"
+                            elif val == "F":
+                                color = "red"
+                            return f"color: {color}"
+
+                        # Format styler mapping missing numbers to abs and assigning grade colors
+                        formatted_cognitive_df = (
+                            cognitive_df.style
+                            .format(format_dict, na_rep="abs")
+                            .map(assign_grade_color, subset=["Grade"])
+                        )
+                        
                         st.dataframe(formatted_cognitive_df, hide_index=True, use_container_width=True)
                     else:
                         st.warning("No academic score records found for this student profile.")
 
+                    # 8. RENDER COGNITIVE SUMMARY 
                     col_subj1, col_subj2, col_subj3 = st.columns(3)
                     with col_subj1:
                         st.write(f"Total Subjects Offered: {total_subjects_offered}")
