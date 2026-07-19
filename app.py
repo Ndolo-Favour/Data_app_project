@@ -55,70 +55,114 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
         return False, str(e)
 
 def generate_pdf_report(student_name, student_class, term, year, scores_df, 
-                        teacher_comment, principal_comment, class_teacher_name):
+                        teacher_comment="", principal_comment="", class_teacher_name="",
+                        admission_no="", gender="", dob="", attendance=""):
     pdf = FPDF()
     pdf.add_page()
     
-    #1. Header
+    # 1. Header with Colors
+    pdf.set_text_color(255, 0, 0)
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, txt="No Limits Sec. School", ln=True, align="C")    
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(200, 10, txt=f"Term Report: {term} ({year})", ln=True, align="C")
-    pdf.ln(5)
-
-    #2. Student Info
+    pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")    
+    
+    pdf.set_text_color(0, 0, 255)
+    pdf.set_font("Arial", "I", 10)
+    pdf.cell(200, 5, txt="64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.", ln=True, align="C")
+    
+    pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "B", 12)
-    pdf.cell(200, 10, txt=f"Student: {student_name} | Class: {student_class}", ln=True, align="L")
-    pdf.ln(5)
+    pdf.cell(200, 8, txt=f"Term Report: {term} ({year})", ln=True, align="C")
+    pdf.ln(4)
 
-    #3. Table
-    pdf.set_font("Arial", "B", 10)
-    # Define widths for table columns
-    pdf.cell(60, 10, "Subject", border=1)
-    pdf.cell(30, 10, "CA 1", border=1, align="C")
-    pdf.cell(30, 10, "CA 2", border=1, align="C")
-    pdf.cell(30, 10, "Exam", border=1, align="C")
-    pdf.cell(30, 10, "Total", border=1, align="C")
+    # 2. Student Demographics & Info
+    pdf.set_font("Arial", "", 10)
+    
+    pdf.cell(95, 6, txt=f"Student Name: {student_name}", ln=0, align="L")
+    pdf.cell(95, 6, txt=f"Admission No: {admission_no}", ln=1, align="L")
+    
+    pdf.cell(95, 6, txt=f"Class: {student_class}", ln=0, align="L")
+    pdf.cell(95, 6, txt=f"Gender: {gender}", ln=1, align="L")
+    
+    pdf.cell(95, 6, txt=f"Date of Birth: {dob}", ln=0, align="L")
+    pdf.cell(95, 6, txt=f"Attendance: {attendance}", ln=1, align="L")
+    
+    pdf.ln(4)
+
+    # 3. Compact Table Headers (Total width = 190)
+    pdf.set_font("Arial", "B", 8)
+    row_height = 6
+    
+    pdf.cell(36, row_height, "Subject", border=1)
+    pdf.cell(14, row_height, "1st Term", border=1, align="C")
+    pdf.cell(14, row_height, "2nd Term", border=1, align="C")
+    pdf.cell(12, row_height, "1st CA", border=1, align="C")
+    pdf.cell(12, row_height, "2nd CA", border=1, align="C")
+    pdf.cell(12, row_height, "Exam", border=1, align="C")
+    pdf.cell(12, row_height, "Total", border=1, align="C")
+    pdf.cell(12, row_height, "Grade", border=1, align="C")
+    pdf.cell(16, row_height, "Rank", border=1, align="C")
+    pdf.cell(50, row_height, "Remark", border=1, align="C")
     pdf.ln()
 
-    pdf.set_font("Arial", '', 10)
+    # 4. Table Rows matching the expanded columns
+    pdf.set_font("Arial", '', 8)
     for idx, row in scores_df.iterrows():
-        pdf.cell(60, 10, str(row.get("Subject", "")), border=1)
-        pdf.cell(30, 10, str(row.get("CA1", "")), border=1, align="C")
-        pdf.cell(30, 10, str(row.get("CA2", "")), border=1, align="C")
-        pdf.cell(30, 10, str(row.get("Exam", "")), border=1, align="C")
-        pdf.cell(30, 10, str(row.get("Term_Total", "")), border=1, align="C")
+        subj = str(row.get("Subject", ""))
+        term1 = str(row.get("1st Term", "")) 
+        term2 = str(row.get("2nd Term", ""))
+        ca1 = str(row.get("1st CA (20)", row.get("CA1", "")))
+        ca2 = str(row.get("2nd CA (20)", row.get("CA2", "")))
+        exam = str(row.get("Exam (60)", row.get("Exam", "")))
+        total = str(row.get("Total (100)", row.get("Term_Total", "")))
+        grade = str(row.get("Grade", ""))
+        rank = str(row.get("Subject Rank", ""))
+        remark = str(row.get("Comment", ""))
+
+        # Clean up nan strings
+        term1 = "" if term1.lower() == "nan" else term1
+        term2 = "" if term2.lower() == "nan" else term2
+        ca1 = "" if ca1.lower() == "nan" else ca1
+        ca2 = "" if ca2.lower() == "nan" else ca2
+        exam = "" if exam.lower() == "nan" else exam
+        total = "" if total.lower() == "nan" else total
+
+        # Truncate subject and remark strings if they are exceptionally long to avoid breaking the cell
+        pdf.cell(36, row_height, subj[:20], border=1)
+        pdf.cell(14, row_height, term1, border=1, align="C")
+        pdf.cell(14, row_height, term2, border=1, align="C")
+        pdf.cell(12, row_height, ca1, border=1, align="C")
+        pdf.cell(12, row_height, ca2, border=1, align="C")
+        pdf.cell(12, row_height, exam, border=1, align="C")
+        pdf.cell(12, row_height, total, border=1, align="C")
+        pdf.cell(12, row_height, grade, border=1, align="C")
+        pdf.cell(16, row_height, rank, border=1, align="C")
+        pdf.cell(50, row_height, remark[:28], border=1, align="C")
         pdf.ln()
 
-    pdf.ln(10) # Space before comments
+    pdf.ln(8)
 
-    # 4. Comments (Side-by-side)
-    y_before_comments = pdf.get_y()
+    # 5. Comments (Side-by-side)
     col_width = 95
 
-    # Render Teacher Column
     pdf.set_font("Arial", 'B', 10)
-    pdf.cell(col_width, 7, "Class Teacher Comment", ln=0)
-    pdf.cell(col_width, 7, "Principal Remarks", ln=1)
+    pdf.cell(col_width, 6, "Class Teacher Comment", ln=0)
+    pdf.cell(col_width, 6, "Principal Remarks", ln=1)
+    
     pdf.set_font("Arial", '', 8.5)
-    # Use multi_cell to wrap text within the column width
-    # We save the Y position for the teacher column
     y_start = pdf.get_y()
     pdf.multi_cell(col_width, 5, str(teacher_comment), border=0)
     y_teacher_end = pdf.get_y()
     
-    # Return to top for Principal column
     pdf.set_xy(105, y_start) 
     pdf.multi_cell(col_width, 5, str(principal_comment), border=0)
     y_principal_end = pdf.get_y()
     
-    # Move cursor to the bottom of the tallest column
     pdf.set_y(max(y_teacher_end, y_principal_end) + 5)
     
-    # 5. Signatories
+    # 6. Signatories
     pdf.set_font("Arial", 'B', 9)
-    pdf.cell(col_width, 7, f"Signed: {class_teacher_name}", ln=0)
-    pdf.cell(col_width, 7, "Signed: Mrs Joy Paul", ln=1)
+    pdf.cell(col_width, 6, f"Signed: {class_teacher_name}", ln=0)
+    pdf.cell(col_width, 6, "Signed: Mrs Joy Paul", ln=1)
 
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
