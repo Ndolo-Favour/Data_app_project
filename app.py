@@ -1615,7 +1615,7 @@ else:
                         days_absent=attendance_absent, 
                         session=current_year, 
                         school_opened=attendance_opened,
-                        term_period=term_period, 
+                        term_period=current_term, 
                         total_classmates=total_classmates,
                         student_term_avg=student_term_avg, 
                         class_term_avg=class_term_avg, 
