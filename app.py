@@ -70,16 +70,16 @@ def generate_pdf_report(
     
     # 1. School Header
     pdf.set_text_color(255, 0, 0)
-    pdf.set_font("Arial", "", 16)
+    pdf.set_font("Arial", "B", 16)
     pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")    
     
     pdf.set_text_color(0, 0, 255)
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("Arial", "BI", 9)
     pdf.cell(200, 5, txt="64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.", ln=True, align="C")
     
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(200, 8, txt="STUDENT PROGRESS REPORT", ln=True, align="C")
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(200, 8, txt="END OF THE TERM ASSESSMENT REPORT", ln=True, align="C")
     pdf.ln(2)
 
     # 2. Student Demographics (3-Column Layout, Font Size 8)
@@ -102,12 +102,12 @@ def generate_pdf_report(
     pdf.ln(2)
 
     # 3. Term and Session Summaries (Font Size 8)
-    pdf.cell(col_w, 5, txt=f"Student Term Average: {student_term_avg}", ln=0)
-    pdf.cell(col_w, 5, txt=f"Class Average for Term: {class_term_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Student Term Average: {student_term_avg:.2f}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Average for Term: {class_term_avg:.2f}", ln=0)
     pdf.cell(col_w, 5, txt=f"Class Position for Term: {class_term_pos}", ln=1)
 
-    pdf.cell(col_w, 5, txt=f"Student Session Average: {student_session_avg}", ln=0)
-    pdf.cell(col_w, 5, txt=f"Class Average for Session: {class_session_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Student Session Average: {student_session_avg:.2f}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Average for Session: {class_session_avg:.2f}", ln=0)
     pdf.cell(col_w, 5, txt=f"Class Position for Session: {class_session_pos}", ln=1)
     pdf.ln(3)
 
