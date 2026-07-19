@@ -85,8 +85,12 @@ def generate_pdf_report(
     # 2. Student Demographics (3-Column Layout, Font Size 8)
     pdf.set_font("Arial", "", 8)
     col_w = 63
-    
-    pdf.cell(col_w, 5, txt=f"Student's Name: {student_name}", ln=0)
+
+    pdf.set_font("Arial", "B", 9)
+    pdf.cell(col_w, 5, txt=f"{student_name}", ln=0)
+
+    # Reset Font
+    pdf.set_font("Arial", "", 8)
     pdf.cell(col_w, 5, txt=f"Class Room: {class_room}", ln=0)
     pdf.cell(col_w, 5, txt=f"Student Code: {student_code}", ln=1)
 
