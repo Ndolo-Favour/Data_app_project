@@ -80,6 +80,18 @@ def generate_pdf_report(
     pdf.set_text_color(0, 0, 0)
     pdf.set_font("Arial", "B", 10)
     pdf.cell(200, 8, txt="END OF THE TERM ASSESSMENT REPORT", ln=True, align="C")
+    pdf.ln(1)
+
+    #Section Separator line - Black
+    pdf.set_draw_color(0, 0, 0)
+    pdf.set_line_width(0.5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(1)
+
+    #Section Separator line - Blue
+    pdf.set_draw_color(0, 0, 255)
+    pdf.set_line_width(0.2)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
     pdf.ln(2)
 
     # 2. Student Demographics (3-Column Layout, Font Size 8)
@@ -116,7 +128,9 @@ def generate_pdf_report(
     pdf.ln(3)
 
     # 4. Cognitive Domain Scores Header & Table (Font Size 8)
+    pdf.set_font("Arial", "B", 9)
     pdf.cell(190, 6, txt="Cognitive Domain Scores", border=1, ln=True, align="C")
+    pdf.set_font("Arial","",8)
     
     row_height = 5
     has_session_avg = "Session Average" in scores_df.columns
@@ -129,10 +143,10 @@ def generate_pdf_report(
         pdf.cell(11, row_height, "2nd CA", border=1, align="C")
         pdf.cell(11, row_height, "Exam", border=1, align="C")
         pdf.cell(11, row_height, "Total", border=1, align="C")
-        pdf.cell(12, row_height, "S. Avg", border=1, align="C")
+        pdf.cell(18, row_height, "Session Avg", border=1, align="C")
         pdf.cell(10, row_height, "Grade", border=1, align="C")
         pdf.cell(14, row_height, "Rank", border=1, align="C")
-        pdf.cell(50, row_height, "Remark", border=1, align="C")
+        pdf.cell(44, row_height, "Remark", border=1, align="C")
     else:
         pdf.cell(36, row_height, "Subject", border=1)
         pdf.cell(14, row_height, "1st Term", border=1, align="C")
@@ -166,20 +180,37 @@ def generate_pdf_report(
         rank = str(row.get("Subject Rank", ""))
         remark = str(row.get("Comment", ""))
 
+        # Save X and Y position before drawing Subject
+        x_start = pdf.get_x()
+        y_start = pdf.get_y()
+
         if has_session_avg:
+            # Multi_cell handles wrapping
+            pdf.multi_cell(34, row_height, subj, border=1)
+            row_end_y = pdf.get_y()
+
+            #Return cursor to right of Subject cell
+            pdf.set_xy(x_start + 34, y_start)
             s_avg = format_whole_score(row.get("Session Average", ""))
-            pdf.cell(34, row_height, subj[:20], border=1)
+
+            # Draw the rest of the cells
             pdf.cell(13, row_height, term1, border=1, align="C")
             pdf.cell(13, row_height, term2, border=1, align="C")
             pdf.cell(11, row_height, ca1, border=1, align="C")
             pdf.cell(11, row_height, ca2, border=1, align="C")
             pdf.cell(11, row_height, exam, border=1, align="C")
             pdf.cell(11, row_height, total, border=1, align="C")
-            pdf.cell(12, row_height, s_avg, border=1, align="C")
+            pdf.cell(18, row_height, s_avg, border=1, align="C")
             pdf.cell(10, row_height, grade, border=1, align="C")
             pdf.cell(14, row_height, rank, border=1, align="C")
-            pdf.cell(50, row_height, remark[:28], border=1, align="C")
+            pdf.cell(44, row_height, remark[:28], border=1, align="C")
+            # Move cursor to the row_end_y for the next iteration
+            pdf.set_y(row_end_y)
         else:
+            pdf.multi_cell(36, row_height, subj, border=1)
+            row_end_y = pdf.get_y()
+            pdf.set_xy(x_start + 36, y_start)
+            
             pdf.cell(36, row_height, subj[:20], border=1)
             pdf.cell(14, row_height, term1, border=1, align="C")
             pdf.cell(14, row_height, term2, border=1, align="C")
@@ -190,6 +221,7 @@ def generate_pdf_report(
             pdf.cell(12, row_height, grade, border=1, align="C")
             pdf.cell(16, row_height, rank, border=1, align="C")
             pdf.cell(50, row_height, remark[:28], border=1, align="C")
+            pdf.set_y(row_end_y)
         pdf.ln()
 
     pdf.ln(3)
@@ -204,13 +236,24 @@ def generate_pdf_report(
     pdf.cell(190, 5, txt="Grading Legend & Keys Summary", border=0, ln=True, align="L")
     
     key_w = 31.6
-    pdf.cell(key_w, 5, "A: 75-100 (Excellent)", border=1, align="C")
-    pdf.cell(key_w, 5, "B: 65-74 (Very Good)", border=1, align="C")
-    pdf.cell(key_w, 5, "C: 55-64 (Good)", border=1, align="C")
-    pdf.cell(key_w, 5, "D: 45-54 (Fair)", border=1, align="C")
-    pdf.cell(key_w, 5, "E: 40-44 (Pass)", border=1, align="C")
+    pdf.cell(key_w, 5, "A: 80-100 (Excellent)", border=1, align="C")
+    pdf.cell(key_w, 5, "B: 70-79 (Very Good)", border=1, align="C")
+    pdf.cell(key_w, 5, "C: 60-69 (Fair)", border=1, align="C")
+    pdf.cell(key_w, 5, "D: 50-59 (Marginal)", border=1, align="C")
+    pdf.cell(key_w, 5, "E: 40-49 (Pass)", border=1, align="C")
     pdf.cell(key_w, 5, "F: 0-39 (Fail)", border=1, align="C")
     pdf.ln(8)
+
+     #Section Separator line - Black
+    pdf.set_draw_color(0, 0, 0)
+    pdf.set_line_width(0.5)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(1)
+
+    #Section Separator line - Blue
+    pdf.set_line_width(0.2)
+    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    pdf.ln(2)
 
     # 7. Comments and Signatories (Font Size 8)
     col_width = 95
