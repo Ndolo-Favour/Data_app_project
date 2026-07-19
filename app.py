@@ -54,44 +54,67 @@ def write_back_to_sheets(dataframe, sheet_name, action_type, extra_metadata=None
     except Exception as e:
         return False, str(e)
 
-def generate_pdf_report(student_name, student_class, term, year, scores_df, 
-                        teacher_comment="", principal_comment="", class_teacher_name="",
-                        admission_no="", gender="", dob="", attendance=""):
+from fpdf import FPDF
+
+def generate_pdf_report(
+    student_name, class_room, student_code, gender_group,
+    days_present, days_absent, session, school_opened,
+    term_period, total_classmates,
+    student_term_avg, class_term_avg, class_term_pos,
+    student_session_avg, class_session_avg, class_session_pos,
+    total_offered, total_passed, total_failed,
+    scores_df, teacher_comment="", principal_comment="", class_teacher_name=""
+):
     pdf = FPDF()
     pdf.add_page()
     
-    # 1. Header with Colors
+    # 1. School Header
     pdf.set_text_color(255, 0, 0)
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("Arial", "", 16)
     pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")    
     
     pdf.set_text_color(0, 0, 255)
-    pdf.set_font("Arial", "I", 10)
+    pdf.set_font("Arial", "", 10)
     pdf.cell(200, 5, txt="64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.", ln=True, align="C")
     
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", "B", 12)
-    pdf.cell(200, 8, txt=f"Term Report: {term} ({year})", ln=True, align="C")
-    pdf.ln(4)
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(200, 8, txt="STUDENT PROGRESS REPORT", ln=True, align="C")
+    pdf.ln(2)
 
-    # 2. Student Demographics & Info
-    pdf.set_font("Arial", "", 10)
+    # 2. Student Demographics (3-Column Layout, Font Size 8)
+    pdf.set_font("Arial", "", 8)
+    col_w = 63  # 63mm per column fits nicely within the 190mm printable width
     
-    pdf.cell(95, 6, txt=f"Student Name: {student_name}", ln=0, align="L")
-    pdf.cell(95, 6, txt=f"Admission No: {admission_no}", ln=1, align="L")
-    
-    pdf.cell(95, 6, txt=f"Class: {student_class}", ln=0, align="L")
-    pdf.cell(95, 6, txt=f"Gender: {gender}", ln=1, align="L")
-    
-    pdf.cell(95, 6, txt=f"Date of Birth: {dob}", ln=0, align="L")
-    pdf.cell(95, 6, txt=f"Attendance: {attendance}", ln=1, align="L")
-    
-    pdf.ln(4)
+    pdf.cell(col_w, 5, txt=f"Student's Name: {student_name}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Room: {class_room}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Student Code: {student_code}", ln=1)
 
-    # 3. Compact Table Headers (Total width = 190)
-    pdf.set_font("Arial", "B", 8)
-    row_height = 6
+    pdf.cell(col_w, 5, txt=f"Gender Group: {gender_group}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Term Period: {term_period}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Session: {session}", ln=1)
+
+    pdf.cell(col_w, 5, txt=f"Days Present: {days_present}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Days Absent: {days_absent}", ln=0)
+    pdf.cell(col_w, 5, txt=f"School Opened: {school_opened}", ln=1)
+
+    pdf.cell(col_w, 5, txt=f"Total Classmates: {total_classmates}", ln=1)
+    pdf.ln(2)
+
+    # 3. Term and Session Summaries (Font Size 8)
+    pdf.cell(col_w, 5, txt=f"Student Term Average: {student_term_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Average for Term: {class_term_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Position for Term: {class_term_pos}", ln=1)
+
+    pdf.cell(col_w, 5, txt=f"Student Session Average: {student_session_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Average for Session: {class_session_avg}", ln=0)
+    pdf.cell(col_w, 5, txt=f"Class Position for Session: {class_session_pos}", ln=1)
+    pdf.ln(3)
+
+    # 4. Cognitive Domain Scores Header & Table (Font Size 8)
+    pdf.cell(190, 6, txt="Cognitive Domain Scores", border=1, ln=True, align="C")
     
+    row_height = 5
     pdf.cell(36, row_height, "Subject", border=1)
     pdf.cell(14, row_height, "1st Term", border=1, align="C")
     pdf.cell(14, row_height, "2nd Term", border=1, align="C")
@@ -104,8 +127,6 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df,
     pdf.cell(50, row_height, "Remark", border=1, align="C")
     pdf.ln()
 
-    # 4. Table Rows matching the expanded columns
-    pdf.set_font("Arial", '', 8)
     for idx, row in scores_df.iterrows():
         subj = str(row.get("Subject", ""))
         term1 = str(row.get("1st Term", "")) 
@@ -118,7 +139,6 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df,
         rank = str(row.get("Subject Rank", ""))
         remark = str(row.get("Comment", ""))
 
-        # Clean up nan strings
         term1 = "" if term1.lower() == "nan" else term1
         term2 = "" if term2.lower() == "nan" else term2
         ca1 = "" if ca1.lower() == "nan" else ca1
@@ -126,7 +146,6 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df,
         exam = "" if exam.lower() == "nan" else exam
         total = "" if total.lower() == "nan" else total
 
-        # Truncate subject and remark strings if they are exceptionally long to avoid breaking the cell
         pdf.cell(36, row_height, subj[:20], border=1)
         pdf.cell(14, row_height, term1, border=1, align="C")
         pdf.cell(14, row_height, term2, border=1, align="C")
@@ -139,30 +158,43 @@ def generate_pdf_report(student_name, student_class, term, year, scores_df,
         pdf.cell(50, row_height, remark[:28], border=1, align="C")
         pdf.ln()
 
+    pdf.ln(3)
+
+    # 5. Scores Summary (Font Size 8)
+    pdf.cell(63, 5, txt=f"Total Subjects Offered: {total_offered}", ln=0)
+    pdf.cell(63, 5, txt=f"Total Subjects Passed: {total_passed}", ln=0)
+    pdf.cell(64, 5, txt=f"Total Subjects Failed: {total_failed}", ln=1)
+    pdf.ln(3)
+
+    # 6. Legends / Keys Summary (Font Size 8)
+    pdf.cell(190, 5, txt="Grading Legend & Keys Summary", border=0, ln=True, align="L")
+    
+    key_w = 31.6
+    pdf.cell(key_w, 5, "A: 75-100 (Excellent)", border=1, align="C")
+    pdf.cell(key_w, 5, "B: 65-74 (Very Good)", border=1, align="C")
+    pdf.cell(key_w, 5, "C: 55-64 (Good)", border=1, align="C")
+    pdf.cell(key_w, 5, "D: 45-54 (Fair)", border=1, align="C")
+    pdf.cell(key_w, 5, "E: 40-44 (Pass)", border=1, align="C")
+    pdf.cell(key_w, 5, "F: 0-39 (Fail)", border=1, align="C")
     pdf.ln(8)
 
-    # 5. Comments (Side-by-side)
+    # 7. Comments and Signatories (Font Size 8)
     col_width = 95
-
-    pdf.set_font("Arial", 'B', 10)
-    pdf.cell(col_width, 6, "Class Teacher Comment", ln=0)
-    pdf.cell(col_width, 6, "Principal Remarks", ln=1)
+    pdf.cell(col_width, 5, "Class Teacher Comment", ln=0)
+    pdf.cell(col_width, 5, "Principal Remarks", ln=1)
     
-    pdf.set_font("Arial", '', 8.5)
     y_start = pdf.get_y()
-    pdf.multi_cell(col_width, 5, str(teacher_comment), border=0)
+    pdf.multi_cell(col_width, 4, str(teacher_comment), border=0)
     y_teacher_end = pdf.get_y()
     
     pdf.set_xy(105, y_start) 
-    pdf.multi_cell(col_width, 5, str(principal_comment), border=0)
+    pdf.multi_cell(col_width, 4, str(principal_comment), border=0)
     y_principal_end = pdf.get_y()
     
-    pdf.set_y(max(y_teacher_end, y_principal_end) + 5)
+    pdf.set_y(max(y_teacher_end, y_principal_end) + 4)
     
-    # 6. Signatories
-    pdf.set_font("Arial", 'B', 9)
-    pdf.cell(col_width, 6, f"Signed: {class_teacher_name}", ln=0)
-    pdf.cell(col_width, 6, "Signed: Mrs Joy Paul", ln=1)
+    pdf.cell(col_width, 5, f"Signed: {class_teacher_name}", ln=0)
+    pdf.cell(col_width, 5, "Signed: Mrs Joy Paul", ln=1)
 
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
