@@ -1613,7 +1613,7 @@ else:
                         gender_group=student_gender,
                         days_present=attendance_present, 
                         days_absent=attendance_absent, 
-                        session=session, 
+                        session=current_year, 
                         school_opened=attendance_opened,
                         term_period=term_period, 
                         total_classmates=total_classmates,
