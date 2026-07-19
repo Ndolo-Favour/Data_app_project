@@ -1559,16 +1559,30 @@ else:
                         st.write("**Signatory:** Mrs Joy Paul")
 
                     pdf_data = generate_pdf_report(
-                        student_name,
-                        student_class,
-                        current_term,
-                        current_year,
-                        cognitive_df,
-                        teacher_comment,
-                        principal_comment,
-                        class_teacher_name
+                        student_name=student_name, 
+                        class_room=class_room, 
+                        student_code=student_code, 
+                        gender_group=gender_group,
+                        days_present=days_present, 
+                        days_absent=days_absent, 
+                        session=session, 
+                        school_opened=school_opened,
+                        term_period=term_period, 
+                        total_classmates=total_classmates,
+                        student_term_avg=student_term_avg, 
+                        class_term_avg=class_term_avg, 
+                        class_term_pos=class_term_pos,
+                        student_session_avg=student_session_avg, 
+                        class_session_avg=class_session_avg, 
+                        class_session_pos=class_session_pos,
+                        total_offered=total_offered, 
+                        total_passed=total_passed, 
+                        total_failed=total_failed,
+                        scores_df=scores_df, 
+                        teacher_comment=teacher_comment, 
+                        principal_comment=principal_comment, 
+                        class_teacher_name=class_teacher_name
                     )
-
                     st.download_button(
                         label="Download Result as PDF",
                         data=pdf_data,
