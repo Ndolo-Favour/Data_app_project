@@ -78,7 +78,7 @@ def generate_pdf_report(
     pdf.cell(200, 5, txt="64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.", ln=True, align="C")
     
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", "B", 11)
+    pdf.set_font("Arial", "B", 10)
     pdf.cell(200, 8, txt="END OF THE TERM ASSESSMENT REPORT", ln=True, align="C")
     pdf.ln(2)
 
@@ -86,7 +86,7 @@ def generate_pdf_report(
     pdf.set_font("Arial", "", 8)
     col_w = 63
 
-    pdf.set_font("Arial", "B", 9)
+    pdf.set_font("Arial", "B", 10)
     pdf.cell(col_w, 5, txt=f"{student_name}", ln=0)
 
     # Reset Font
