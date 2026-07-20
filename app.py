@@ -260,41 +260,49 @@ def generate_pdf_report(
 
     # 7. Comments and Signatories (Font Size 8)
     pdf.set_font("Arial", "", 8)
-
-    left_width = 115
-    right_width = 65
-    start_x = pdf.l_margin  # Standard left margin
-
+    
+    left_width = 125   # Increased to give the comment more horizontal space
+    gap = 6            # Tightened gap between comment and signature
+    right_x = pdf.l_margin + left_width + gap  
+    right_width = 190 - (left_width + gap)     
+    
     # --- Row 1: Class Teacher ---
     y_start = pdf.get_y()
-    # Left: Class Teacher Comment
+
     pdf.set_font("Arial", "", 8)
     pdf.multi_cell(left_width, 4, f"Class Teacher Comment:\n{teacher_comment}", border=0)
     y_teacher_end = pdf.get_y()
     
-    # Right: Class Teacher Signature (Far Right)
-    right_x = start_x + left_width + 10  # 10mm gap between comment and signature
     pdf.set_xy(right_x, y_start)
-    
     pdf.set_font("Arial", "B", 8)
     pdf.cell(right_width, 4, f"Signed: {class_teacher_name}", ln=1, align="R")
     
     pdf.set_x(right_x)
     pdf.set_font("Arial", "I", 8)
     pdf.cell(right_width, 4, "(Class Teacher)", ln=1, align="R")
-    y_sig1_end = pdf.get_y()    
-    # Move below the tallest element in this row
+    y_sig1_end = pdf.get_y()
+    
     pdf.set_y(max(y_teacher_end, y_sig1_end) + 4)
     
     # --- Row 2: Principal ---
-    y_start = pdf.get_y()    
+    y_start = pdf.get_y()
+    # Get comment and conditional status based on term and average
+    principal_comment, promotion_status = get_principal_comment(student_term_average, student_name, term_period)
+    
     # Left: Principal Remarks
     pdf.set_font("Arial", "", 8)
     pdf.multi_cell(left_width, 4, f"Principal Remarks:\n{principal_comment}", border=0)
-    y_principal_end = pdf.get_y()    
-    # Right: Principal Signature (Far Right)
-    pdf.set_xy(right_x, y_start)
     
+    # If third term, print the status in bold on the next line
+    if promotion_status:
+        pdf.set_font("Arial", "B", 8)
+        pdf.multi_cell(left_width, 4, promotion_status, border=0)
+        pdf.set_font("Arial", "", 8)  # Reset font back to regular
+    
+    y_principal_end = pdf.get_y()
+    
+    # Right: Principal Signature (Dynamic Right Column)
+    pdf.set_xy(right_x, y_start)
     pdf.set_font("Arial", "B", 8)
     pdf.cell(right_width, 4, "Signed: Mrs Joy Paul", ln=1, align="R")
     
@@ -309,23 +317,36 @@ def generate_pdf_report(
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
     
-def get_principal_comment(average, student_name):
+def get_principal_comment(average, student_name, term_period=""):
+    # Base comment logic
     if average >= 90:
-        return f"{student_name} has demonstrated outstanding academic excellence and a commendable work ethic this term."
+        comment = f"{student_name} has demonstrated outstanding academic excellence and a commendable work ethic this term."
     elif average >= 80:
-        return f"{student_name} has shown a strong grasp of the curriculum and consistent dedication to their studies."
+        comment = f"{student_name} has shown a strong grasp of the curriculum and consistent dedication to their studies."
     elif average >= 70:
-        return f"{student_name} has achieved a solid performance, demonstrating steady progress and a good understanding of the material."
+        comment = f"{student_name} has achieved a solid performance, demonstrating steady progress and a good understanding of the material."
     elif average >= 60:
-        return f"{student_name} has delivered a satisfactory performance, though greater consistency will help unlock their true potential."
+        comment = f"{student_name} has delivered a satisfactory performance, though greater consistency will help unlock their true potential."
     elif average >= 50:
-        return f"{student_name} has met the basic requirements, but developing a more regular study routine is recommended."
+        comment = f"{student_name} has met the basic requirements, but developing a more regular study routine is recommended."
     elif average >= 40:
-        return f"{student_name} is finding some core concepts challenging and needs to focus on mastering the basics next term."
+        comment = f"{student_name} is finding some core concepts challenging and needs to focus on mastering the basics next term."
     elif average >= 30:
-        return f"{student_name}’s results are of concern, and a structured revision plan is urgently needed to address gaps in learning."
+        comment = f"{student_name}’s results are of concern, and a structured revision plan is urgently needed to address gaps in learning."
     else:
-        return f"Immediate intervention and close collaboration are required to help {student_name} rebuild their academic foundation."
+        comment = f"Immediate intervention and close collaboration are required to help {student_name} rebuild their academic foundation."
+
+    # Determine status if it's the third term
+    status = None
+    if term_period == "Third Term":
+        if average >= 50:
+            status = "Status: Promoted to the Next Class"
+        elif average >= 30:
+            status = "Status: Promoted Conditionally"
+        else:
+            status = "Status: Advised to Meet the Principal for Placement"
+
+    return comment, status
 
 db_result, db_error = load_entire_database(API_URL)
 
