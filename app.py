@@ -11,7 +11,6 @@ from PIL import Image
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
 @st.cache_data
-from PIL import Image
 
 def load_local_logo(image_path, opacity=0.1):
     try:
