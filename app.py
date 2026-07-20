@@ -172,6 +172,8 @@ def generate_pdf_report(
 
     for idx, row in scores_df.iterrows():
         subj = str(row.get("Subject", ""))
+        if subj == "Information Communication and Technology":
+            subj = "ICT"
         term1 = format_whole_score(row.get("1st Term", "")) 
         term2 = format_whole_score(row.get("2nd Term", ""))
         ca1 = format_whole_score(row.get("1st CA (20)", row.get("CA1", "")))
