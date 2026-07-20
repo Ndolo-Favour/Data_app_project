@@ -27,6 +27,7 @@ def fetch_and_process_drive_image(drive_url, opacity=0.1):
         watermark_stream.seek(0)
         
         solid_stream = BytesIO(response.content)
+        solid_stream.seek(0)
         
         return solid_stream, watermark_stream
         
@@ -112,7 +113,7 @@ def generate_pdf_report(
     
     pdf.set_text_color(255, 0, 0)
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")    
+    pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")
     
     pdf.set_text_color(0, 0, 255)
     pdf.set_font("Arial", "BI", 9)
