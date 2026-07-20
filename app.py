@@ -92,6 +92,8 @@ def generate_pdf_report(
     pdf.set_draw_color(0, 0, 255)
     pdf.set_line_width(0.2)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+    # Rest color to black
+    pdf.set_draw_color(0, 0, 0)
     pdf.ln(2)
 
     # 2. Student Demographics (3-Column Layout, Font Size 8)
@@ -222,8 +224,7 @@ def generate_pdf_report(
             pdf.cell(16, row_height, rank, border=1, align="C")
             pdf.cell(50, row_height, remark[:28], border=1, align="C")
             pdf.set_y(row_end_y)
-        pdf.ln()
-
+        
     pdf.ln(3)
 
     # 5. Scores Summary (Font Size 8)
