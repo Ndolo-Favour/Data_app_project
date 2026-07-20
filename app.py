@@ -261,14 +261,18 @@ def generate_pdf_report(
     # 7. Comments and Signatories (Font Size 8)
     pdf.set_font("Arial", "", 8)
     
-    left_width = 125   # Increased to give the comment more horizontal space
-    gap = 6            # Tightened gap between comment and signature
+    left_width = 125   
+    gap = 6            
     right_x = pdf.l_margin + left_width + gap  
     right_width = 190 - (left_width + gap)     
     
+    # Determine active average for principal comment (Session Avg for Third Term, Term Avg otherwise)
+    active_avg = student_session_avg if term_period == "Third Term" else student_term_avg
+    principal_comment, promotion_status = get_principal_comment(active_avg, student_name, term_period)
+    
     # --- Row 1: Class Teacher ---
     y_start = pdf.get_y()
-
+    
     pdf.set_font("Arial", "", 8)
     pdf.multi_cell(left_width, 4, f"Class Teacher Comment:\n{teacher_comment}", border=0)
     y_teacher_end = pdf.get_y()
@@ -286,22 +290,18 @@ def generate_pdf_report(
     
     # --- Row 2: Principal ---
     y_start = pdf.get_y()
-    # Get comment and conditional status based on term and average
-    principal_comment, promotion_status = get_principal_comment(student_term_average, student_name, term_period)
     
-    # Left: Principal Remarks
     pdf.set_font("Arial", "", 8)
     pdf.multi_cell(left_width, 4, f"Principal Remarks:\n{principal_comment}", border=0)
     
-    # If third term, print the status in bold on the next line
+    # Print promotion status in bold on the next line if it's the Third Term
     if promotion_status:
         pdf.set_font("Arial", "B", 8)
         pdf.multi_cell(left_width, 4, promotion_status, border=0)
-        pdf.set_font("Arial", "", 8)  # Reset font back to regular
+        pdf.set_font("Arial", "", 8)
     
     y_principal_end = pdf.get_y()
     
-    # Right: Principal Signature (Dynamic Right Column)
     pdf.set_xy(right_x, y_start)
     pdf.set_font("Arial", "B", 8)
     pdf.cell(right_width, 4, "Signed: Mrs Joy Paul", ln=1, align="R")
@@ -311,7 +311,6 @@ def generate_pdf_report(
     pdf.cell(right_width, 4, "(Principal)", ln=1, align="R")
     y_sig2_end = pdf.get_y()
     
-    # Move below the tallest element in this row
     pdf.set_y(max(y_principal_end, y_sig2_end) + 4)
 
     pdf_out = pdf.output(dest="S")
@@ -1395,17 +1394,16 @@ else:
                             for key in psychomotor_keys:
                                 psychomotor_ratings[key] = safe_get(summary_row, key)
 
-                    # Resolve Principal's comments using the globally registered function
+                    # Resolve Principal's comments and status using the updated function
                     active_avg = student_session_avg if is_third_term else student_avg
                     try:
-                        # Attempt to call the function directly
-                        principal_comment = get_principal_comment(active_avg, student_name)
+                        principal_comment, promotion_status = get_principal_comment(active_avg, student_name, current_term)
                     except Exception as e:
-                        # If the function itself crashes, log it for debugging
                         principal_comment = None
+                        promotion_status = None
                         st.write(f"Debug: Error in get_principal_comment - {str(e)}")
-                    
-                    # Fallback check
+                        
+                    # Fallback check for the comment
                     if principal_comment is None or str(principal_comment).strip() == "":
                         principal_comment = "No comment logged."
                     
@@ -1729,7 +1727,7 @@ else:
                         total_failed=total_subjects_failed,
                         scores_df=cognitive_df, 
                         teacher_comment=teacher_comment, 
-                        principal_comment=principal_comment, 
+                        #principal_comment=principal_comment: now handled dynamically
                         class_teacher_name=class_teacher_name
                     )
                     st.download_button(
