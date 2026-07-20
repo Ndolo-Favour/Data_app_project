@@ -313,8 +313,8 @@ def generate_pdf_report(
     
     pdf.set_y(max(y_principal_end, y_sig2_end) + 4)
 
-    # Place at the very bottom of the page
-    pdf.set_y(-12)
+    # Place at the very bottom of the page   
+    pdf.set_y(pdf.h - 12)
     pdf.set_font("Arial", "I", 7)
     pdf.cell(0, 5, txt="...NO LIMITS SECONDARY SCHOOLS, LAGOS NIGERIA...", ln=True, align="C")
 
