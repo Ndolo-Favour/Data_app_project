@@ -227,7 +227,7 @@ def generate_pdf_report(
             pdf.cell(50, row_height, remark[:28], border=1, align="C")
             pdf.set_y(row_end_y)
         
-    pdf.ln(10)
+    pdf.ln(3)
 
     # 5. Scores Summary (Font Size 8)
     pdf.cell(63, 5, txt=f"Total Subjects Offered: {total_offered}", ln=0)
