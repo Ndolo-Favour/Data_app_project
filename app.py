@@ -256,25 +256,55 @@ def generate_pdf_report(
     #Section Separator line - Blue
     pdf.set_line_width(0.2)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(2)
+    pdf.ln(5)
 
     # 7. Comments and Signatories (Font Size 8)
-    col_width = 95
-    pdf.cell(col_width, 5, "Class Teacher Comment", ln=0)
-    pdf.cell(col_width, 5, "Principal Remarks", ln=1)
-    
+    pdf.set_font("Arial", "", 8)
+
+    left_width = 115
+    right_width = 65
+    start_x = pdf.l_margin  # Standard left margin
+
+    # --- Row 1: Class Teacher ---
     y_start = pdf.get_y()
-    pdf.multi_cell(col_width, 4, str(teacher_comment), border=0)
+    # Left: Class Teacher Comment
+    pdf.set_font("Arial", "", 8)
+    pdf.multi_cell(left_width, 4, f"Class Teacher Comment:\n{teacher_comment}", border=0)
     y_teacher_end = pdf.get_y()
     
-    pdf.set_xy(105, y_start) 
-    pdf.multi_cell(col_width, 4, str(principal_comment), border=0)
-    y_principal_end = pdf.get_y()
+    # Right: Class Teacher Signature (Far Right)
+    right_x = start_x + left_width + 10  # 10mm gap between comment and signature
+    pdf.set_xy(right_x, y_start)
     
-    pdf.set_y(max(y_teacher_end, y_principal_end) + 4)
+    pdf.set_font("Arial", "B", 8)
+    pdf.cell(right_width, 4, f"Signed: {class_teacher_name}", ln=1, align="R")
     
-    pdf.cell(col_width, 5, f"Signed: {class_teacher_name}", ln=0)
-    pdf.cell(col_width, 5, "Signed: Mrs Joy Paul", ln=1)
+    pdf.set_x(right_x)
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(right_width, 4, "(Class Teacher)", ln=1, align="R")
+    y_sig1_end = pdf.get_y()    
+    # Move below the tallest element in this row
+    pdf.set_y(max(y_teacher_end, y_sig1_end) + 4)
+    
+    # --- Row 2: Principal ---
+    y_start = pdf.get_y()    
+    # Left: Principal Remarks
+    pdf.set_font("Arial", "", 8)
+    pdf.multi_cell(left_width, 4, f"Principal Remarks:\n{principal_comment}", border=0)
+    y_principal_end = pdf.get_y()    
+    # Right: Principal Signature (Far Right)
+    pdf.set_xy(right_x, y_start)
+    
+    pdf.set_font("Arial", "B", 8)
+    pdf.cell(right_width, 4, "Signed: Mrs Joy Paul", ln=1, align="R")
+    
+    pdf.set_x(right_x)
+    pdf.set_font("Arial", "I", 8)
+    pdf.cell(right_width, 4, "(Principal)", ln=1, align="R")
+    y_sig2_end = pdf.get_y()
+    
+    # Move below the tallest element in this row
+    pdf.set_y(max(y_principal_end, y_sig2_end) + 4)
 
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
