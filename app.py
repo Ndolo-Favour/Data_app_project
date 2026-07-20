@@ -191,7 +191,7 @@ def generate_pdf_report(
 
             #Return cursor to right of Subject cell
             pdf.set_xy(x_start + 34, y_start)
-             s_avg = format_whole_score(row.get("Session Average", ""))
+            s_avg = format_whole_score(row.get("Session Average", ""))
            
             # Draw the rest of the cells
             pdf.cell(13, row_height, term1, border=1, align="C")
