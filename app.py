@@ -11,31 +11,25 @@ from PIL import Image
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
 @st.cache_data
-def fetch_and_process_drive_image(drive_url, opacity=0.1):
+from PIL import Image
+
+def load_local_logo(image_path, opacity=0.1):
     try:
-        response = requests.get(drive_url)
-        response.raise_for_status()
+        orig_img = Image.open(image_path).convert("RGBA")
         
-        img = Image.open(BytesIO(response.content)).convert("RGBA")
-        
-        alpha = img.split()[3]
+        watermark_img = orig_img.copy()
+        alpha = watermark_img.split()[3]
         alpha = alpha.point(lambda p: p * opacity)
-        img.putalpha(alpha)
+        watermark_img.putalpha(alpha)
         
-        watermark_stream = BytesIO()
-        img.save(watermark_stream, format="PNG")
-        watermark_stream.seek(0)
+        solid_img = Image.new("RGB", orig_img.size, (255, 255, 255))
+        solid_img.paste(orig_img, mask=orig_img.split()[3])
         
-        solid_stream = BytesIO(response.content)
-        solid_stream.seek(0)
-        
-        return solid_stream, watermark_stream
-        
+        return solid_img, watermark_img
     except Exception as e:
         return None, None
 
-logo_drive_url = "https://drive.google.com/uc?export=view&id=1-xuDjPZAFjBisE78rfEc6fDf_cj2ri_b"
-solid_logo, faint_logo = fetch_and_process_drive_image(logo_drive_url, opacity=0.1)
+solid_logo, faint_logo = load_local_logo("No limit Logo.jpeg", opacity=0.1)
 
 API_URL = "https://script.google.com/macros/s/AKfycbw4pSvjpnf4tcnusDauL39SujQpFpvGOTRuszPVZT40DuJ9ADj-xGRu8bjiCSgHoUf9/exec"
 
