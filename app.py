@@ -314,9 +314,11 @@ def generate_pdf_report(
     pdf.set_y(max(y_principal_end, y_sig2_end) + 4)
 
     # Place at the very bottom of the page   
-    pdf.set_y(pdf.h - 12)
+    pdf.set_auto_page_break(auto=False)
+    pdf.set_y(-12)
     pdf.set_font("Arial", "I", 7)
-    pdf.cell(0, 5, txt="...NO LIMITS SECONDARY SCHOOLS, LAGOS NIGERIA...", ln=True, align="C")
+    pdf.cell(0, 5, txt="...NO LIMITS SECONDARY SCHOOLS, LAGOS NIGERIA...", align="C")
+    pdf.set_auto_page_break(auto=True, margin=15)
 
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
