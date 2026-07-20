@@ -1416,12 +1416,14 @@ else:
                             return "A", "Excellent"
                         elif val >= 70.0:
                             return "B", "Good Result"
-                        elif val >= 50.0:
+                        elif val >= 60.0:
                             return "C", "Fair"
-                        elif val >= 40.0:
+                        elif val >= 50.0:
                             return "D", "Marginal"
+                        elif val >= 40.0:
+                            return "E", "Pass"
                         else:
-                            return "F", "Poor result"
+                            return "F", "Fail"
 
                     total_marks_obtained = student_subject_records["Term_Total"].sum() if not student_subject_records.empty else 0.000
                     total_subjects_offered = len(student_subject_records)
@@ -1626,6 +1628,8 @@ else:
                                 color = "blue"
                             elif val == "D":
                                 color = "yellow"
+                            elif val == "E":
+                                color = "brown"
                             elif val == "F":
                                 color = "red"
                             return f"color: {color}"
