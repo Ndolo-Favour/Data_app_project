@@ -23,8 +23,14 @@ def load_local_logo(image_path, opacity=0.1):
         
         solid_img = Image.new("RGB", orig_img.size, (255, 255, 255))
         solid_img.paste(orig_img, mask=orig_img.split()[3])
+
+        solid_path = "solid_logo_temp.png"
+        watermark_path = "watermark_temp.png"
+
+        solid_img.save(solid_path)
+        watermark_img.save(watermark_path)
         
-        return solid_img, watermark_img
+        return solid_path, watermark_path
     except Exception as e:
         return None, None
 
