@@ -6,6 +6,34 @@ import zipfile
 import io
 from fpdf import FPDF
 
+from io import BytesIO
+from PIL import Image
+
+def fetch_and_process_drive_image(drive_url, opacity=0.1):
+    try:
+        response = requests.get(drive_url)
+        response.raise_for_status()
+        
+        img = Image.open(BytesIO(response.content)).convert("RGBA")
+        
+        alpha = img.split()[3]
+        alpha = alpha.point(lambda p: p * opacity)
+        img.putalpha(alpha)
+        
+        watermark_stream = BytesIO()
+        img.save(watermark_stream, format="PNG")
+        watermark_stream.seek(0)
+        
+        solid_stream = BytesIO(response.content)
+        
+        return solid_stream, watermark_stream
+        
+    except Exception as e:
+        return None, None
+
+logo_drive_url = "https://drive.google.com/uc?export=view&id=1-xuDjPZAFjBisE78rfEc6fDf_cj2ri_b"
+solid_logo, faint_logo = fetch_and_process_drive_image(logo_drive_url, opacity=0.1)
+
 API_URL = "https://script.google.com/macros/s/AKfycbw4pSvjpnf4tcnusDauL39SujQpFpvGOTRuszPVZT40DuJ9ADj-xGRu8bjiCSgHoUf9/exec"
 
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
@@ -67,6 +95,26 @@ def generate_pdf_report(
 ):
     pdf = FPDF()
     pdf.add_page()
+
+    # Insert logo and watermark
+    page_width = 210
+    page_height = 297
+    
+    if faint_logo is not None:
+        watermark_size = 100 
+        x_center = (page_width - watermark_size) / 2
+        y_center = (page_height - watermark_size) / 2
+        pdf.image(faint_logo, x=x_center, y=y_center, w=watermark_size)
+    
+    if solid_logo is not None:
+        logo_size = 20
+        y_header_position = 10
+        
+        # Left side logo
+        pdf.image(solid_logo, x=15, y=y_header_position, w=logo_size, h=logo_size)
+        
+        # Right side logo
+        pdf.image(solid_logo, x=page_width - 15 - logo_size, y=y_header_position, w=logo_size, h=logo_size)
     
     # 1. School Header
     pdf.set_text_color(255, 0, 0)
@@ -78,9 +126,14 @@ def generate_pdf_report(
     pdf.cell(200, 5, txt="64, Canal View Drive, Greenfield Estate, Off Amuwo-Odofin, Ago Palace Way, Lagos.", ln=True, align="C")
     
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("Arial", "B", 9)
     pdf.cell(200, 8, txt="END OF THE TERM ASSESSMENT REPORT", ln=True, align="C")
     pdf.ln(1)
+
+    section = "JUNIOR SECONDARY SCHOOL SECTION" if "JSS" in str(class_room).upper() else "SENIOR SECONDARY SCHOOL SECTION"
+    pdf.set_font("Arial", "", 10)
+    pdf.cell(0, 8, txt=section, ln=True, align="C")
+    pdf.ln(4)    
 
     #Section Separator line - Black
     pdf.set_draw_color(0, 0, 0)
