@@ -227,7 +227,7 @@ def generate_pdf_report(
             pdf.cell(50, row_height, remark[:28], border=1, align="C")
             pdf.set_y(row_end_y)
         
-    pdf.ln(3)
+    pdf.ln(10)
 
     # 5. Scores Summary (Font Size 8)
     pdf.cell(63, 5, txt=f"Total Subjects Offered: {total_offered}", ln=0)
@@ -312,6 +312,11 @@ def generate_pdf_report(
     y_sig2_end = pdf.get_y()
     
     pdf.set_y(max(y_principal_end, y_sig2_end) + 4)
+
+    # Place at the very bottom of the page
+    pdf.set_y(-12)
+    pdf.set_font("Arial", "I", 7)
+    pdf.cell(0, 5, txt="...NO LIMITS SECONDARY SCHOOLS, LAGOS NIGERIA...", ln=True, align="C")
 
     pdf_out = pdf.output(dest="S")
     return pdf_out.encode("latin-1") if isinstance(pdf_out, str) else bytes(pdf_out)
