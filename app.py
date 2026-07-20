@@ -848,18 +848,204 @@ else:
                                             display_name = "Student_Name" if "Student_Name" in target_students.columns else ("STUDENT NAME" if "STUDENT NAME" in target_students.columns else None)
                                             
                                             if not target_students.empty and grade_records is not None:
-                                                term_data = grade_records[grade_records["Term"] == current_term]
+                                                term_data = grade_records[grade_records["Term"] == current_term].copy()
+                                                term_data["Term_Total"] = pd.to_numeric(term_data["Term_Total"], errors="coerce")
+                                                term_data = term_data[(term_data["Term_Total"] > 0) & (term_data["Term_Total"].notna())]
+                                                
+                                                is_third_term = "3" in str(current_term) or "third" in str(current_term).lower()
+                                                
+                                                session_data = pd.DataFrame()
+                                                if is_third_term:
+                                                    session_data = grade_records.copy()
+                                                    session_data["Term_Total"] = pd.to_numeric(session_data["Term_Total"], errors="coerce")
+                                                    session_data = session_data[(session_data["Term_Total"] > 0) & (session_data["Term_Total"].notna())]
                                                 
                                                 for _, student in target_students.iterrows():
-                                                    s_id = student.get("Student_ID")
+                                                    s_id = str(student.get("Student_ID"))
                                                     s_name = student.get(display_name, "Unknown Student")
                                                     s_class = student.get("Class", "Unknown Class")
+                                                    s_gender = student.get("Gender", "N/A")
                                                     
-                                                    student_scores = term_data[term_data["Student_ID"] == s_id]
-                                                    if not student_scores.empty:
-                                                        pdf_bytes = generate_pdf_report(s_name, s_class, current_term, current_year, student_scores)
+                                                    classmate_ids = master_registry[master_registry["Class"] == s_class]["Student_ID"].unique()
+                                                    class_grades = term_data[term_data["Student_ID"].isin(classmate_ids)].copy()
+                                                    
+                                                    student_averages = class_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                                                    student_averages.columns = ["Student_ID", "Student_Average"]
+                                                    student_averages["Rank"] = student_averages["Student_Average"].rank(ascending=False, method="min")
+                                                    
+                                                    class_avg = student_averages["Student_Average"].mean() if not student_averages.empty else 0.000
+                                                    total_class_size = len(classmate_ids)
+                                                    
+                                                    target_summary = student_averages[student_averages["Student_ID"] == s_id]
+                                                    
+                                                    def to_ordinal(num):
+                                                        if pd.isna(num): return "N/A"
+                                                        val = int(num)
+                                                        if 11 <= (val % 100) <= 13: return f"{val}th"
+                                                        return f"{val}" + {1: "st", 2: "nd", 3: "rd"}.get(val % 10, "th")
+
+                                                    if not target_summary.empty:
+                                                        student_avg = target_summary["Student_Average"].values[0]
+                                                        student_rank_num = int(target_summary["Rank"].values[0])
+                                                        student_position = to_ordinal(student_rank_num)
+                                                    else:
+                                                        student_avg = 0.000
+                                                        student_position = "N/A"
+                                                        
+                                                    student_session_avg = 0.000
+                                                    class_session_avg = 0.000
+                                                    class_session_pos = "N/A"
+                                                    class_session_grades = pd.DataFrame()
+                                                    
+                                                    if is_third_term:
+                                                        class_session_grades = session_data[session_data["Student_ID"].isin(classmate_ids)].copy()
+                                                        classmates_session_summaries = class_session_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                                                        classmates_session_summaries.columns = ["Student_ID", "Classmate_Session_Avg"]
+                                                        classmates_session_summaries["Session_Rank"] = classmates_session_summaries["Classmate_Session_Avg"].rank(ascending=False, method="min")
+                                                        class_session_avg = classmates_session_summaries["Classmate_Session_Avg"].mean() if not classmates_session_summaries.empty else 0.000
+                                                        
+                                                        target_sess_rank_match = classmates_session_summaries[classmates_session_summaries["Student_ID"] == s_id]
+                                                        if not target_sess_rank_match.empty:
+                                                            student_session_avg = target_sess_rank_match["Classmate_Session_Avg"].values[0]
+                                                            class_session_pos = to_ordinal(int(target_sess_rank_match["Session_Rank"].values[0]))
+                                                    
+                                                    class_grades["Subject_Rank_Val"] = class_grades.groupby("Subject")["Term_Total"].rank(ascending=False, method="min")
+                                                    class_grades["Subject_Rank"] = class_grades["Subject_Rank_Val"].apply(lambda r: to_ordinal(r) if pd.notna(r) else "N/A")
+                                                    student_subject_records = class_grades[class_grades["Student_ID"] == s_id].copy()
+                                                    
+                                                    attendance_opened = "N/A"
+                                                    attendance_present = "N/A"
+                                                    attendance_absent = "N/A"
+                                                    teacher_comment = ""
+                                                    principal_comment = ""
+                                                    
+                                                    if term_summaries is not None and not term_summaries.empty:
+                                                        matched_summary = term_summaries[(term_summaries["Term"] == current_term) & (term_summaries["Student_ID"].astype(str) == s_id)]
+                                                        if not matched_summary.empty:
+                                                            s_row = matched_summary.iloc[0]
+                                                            attendance_opened = s_row.get("Attendance_Opened", "N/A")
+                                                            attendance_present = s_row.get("Attendance_Present", "N/A")
+                                                            attendance_absent = s_row.get("Attendance_Absent", "N/A")
+                                                            teacher_comment = s_row.get("Teacher_Comment", "")
+                                                            principal_comment = s_row.get("Principal_Comment", "")
+                                                    
+                                                    form_teacher_name = "N/A"
+                                                    if class_teacher_mapping is not None and not class_teacher_mapping.empty and teacher_registry is not None:
+                                                        mapping = class_teacher_mapping[class_teacher_mapping["Class"] == s_class]
+                                                        if not mapping.empty:
+                                                            t_id = mapping.iloc[0]["Teacher_ID"]
+                                                            t_record = teacher_registry[teacher_registry["Teacher_ID"].astype(str) == str(t_id)]
+                                                            if not t_record.empty:
+                                                                form_teacher_name = t_record.iloc[0].get("Teacher_Name", "N/A")
+                                                                
+                                                    def evaluate_score_grade(score):
+                                                        if pd.isna(score): return "F", "Absent"
+                                                        val = float(score)
+                                                        if val >= 80.0: return "A", "Excellent"
+                                                        elif val >= 70.0: return "B", "Very Good"
+                                                        elif val >= 60.0: return "C", "Fair"
+                                                        elif val >= 50.0: return "D", "Marginal"
+                                                        elif val >= 40.0: return "E", "Pass"
+                                                        else: return "F", "Fail"
+                                                        
+                                                    total_passed = 0
+                                                    total_failed = 0
+                                                    cognitive_rows = []
+                                                    
+                                                    term_1_totals = {}
+                                                    term_2_totals = {}
+                                                    if is_third_term:
+                                                        student_all_grades = session_data[session_data["Student_ID"].astype(str) == s_id]
+                                                        for _, g_row in student_all_grades.iterrows():
+                                                            t_val = str(g_row.get("Term", "")).strip().lower()
+                                                            score_val = g_row.get("Term_Total")
+                                                            if "1st" in t_val or "first" in t_val: term_1_totals[g_row.get("Subject")] = score_val
+                                                            elif "2nd" in t_val or "second" in t_val: term_2_totals[g_row.get("Subject")] = score_val
+                                                            
+                                                    for _, row in student_subject_records.iterrows():
+                                                        subj = row["Subject"]
+                                                        ca1 = row.get("CA1", row.get("1CA", None))
+                                                        ca2 = row.get("CA2", row.get("2CA", None))
+                                                        exam = row.get("Exam", None)
+                                                        total_val = row.get("Term_Total", None)
+                                                        
+                                                        if pd.notna(total_val):
+                                                            if total_val >= min_passing_score: total_passed += 1
+                                                            else: total_failed += 1
+                                                            
+                                                        if is_third_term:
+                                                            t1_total = term_1_totals.get(subj, float("nan"))
+                                                            t2_total = term_2_totals.get(subj, float("nan"))
+                                                            valid_terms = [v for v in [t1_total, t2_total, total_val] if pd.notna(v)]
+                                                            session_avg_val = sum(valid_terms) / len(valid_terms) if valid_terms else float("nan")
+                                                            
+                                                            grade, comment = evaluate_score_grade(session_avg_val) if pd.notna(session_avg_val) else ("F", "Absent")
+                                                            
+                                                            subj_class_grades = class_session_grades[class_session_grades["Subject"] == subj].copy()
+                                                            subj_student_avgs = subj_class_grades.groupby("Student_ID")["Term_Total"].mean().reset_index()
+                                                            subj_student_avgs["Rank"] = subj_student_avgs["Term_Total"].rank(ascending=False, method="min")
+                                                            subj_rank_row = subj_student_avgs[subj_student_avgs["Student_ID"] == s_id]
+                                                            subject_rank_str = to_ordinal(int(subj_rank_row["Rank"].values[0])) if not subj_rank_row.empty else "N/A"
+                                                            
+                                                            cognitive_rows.append({
+                                                                "Subject": subj,
+                                                                "1st Term": t1_total,
+                                                                "2nd Term": t2_total,
+                                                                "1st CA (20)": ca1,
+                                                                "2nd CA (20)": ca2,
+                                                                "Exam (60)": exam,
+                                                                "Total (100)": total_val,
+                                                                "Session Average": session_avg_val,
+                                                                "Grade": grade,
+                                                                "Subject Rank": subject_rank_str,
+                                                                "Comment": comment
+                                                            })
+                                                        else:
+                                                            grade, comment = evaluate_score_grade(total_val) if pd.notna(total_val) else ("F", "Absent")
+                                                            cognitive_rows.append({
+                                                                "Subject": subj,
+                                                                "1st CA (20)": ca1,
+                                                                "2nd CA (20)": ca2,
+                                                                "Exam (60)": exam,
+                                                                "Total (100)": total_val,
+                                                                "Grade": grade,
+                                                                "Subject Rank": row.get("Subject_Rank", "N/A"),
+                                                                "Comment": comment
+                                                            })
+                                                            
+                                                    scores_df = pd.DataFrame(cognitive_rows)
+                                                    total_offered = len(scores_df)
+                                                    
+                                                    try:
+                                                        pdf_bytes = generate_pdf_report(
+                                                            student_name=s_name,
+                                                            class_room=s_class,
+                                                            student_code=s_id,
+                                                            gender_group=s_gender,
+                                                            days_present=attendance_present,
+                                                            days_absent=attendance_absent,
+                                                            session=current_year,
+                                                            school_opened=attendance_opened,
+                                                            term_period=current_term,
+                                                            total_classmates=total_class_size,
+                                                            student_term_avg=student_avg,
+                                                            class_term_avg=class_avg,
+                                                            class_term_pos=student_position,
+                                                            student_session_avg=student_session_avg,
+                                                            class_session_avg=class_session_avg,
+                                                            class_session_pos=class_session_pos,
+                                                            total_offered=total_offered,
+                                                            total_passed=total_passed,
+                                                            total_failed=total_failed,
+                                                            scores_df=scores_df,
+                                                            teacher_comment=teacher_comment,
+                                                            principal_comment=principal_comment,
+                                                            class_teacher_name=form_teacher_name
+                                                        )
                                                         safe_name = str(s_name).replace(" ", "_")
                                                         zip_file.writestr(f"{safe_name}_{s_class}_Report.pdf", pdf_bytes)
+                                                    except Exception as e:
+                                                        st.error(f"Failed to generate PDF for {s_name}: {str(e)}")
                                                         
                                         st.success(f"Successfully processed batch printing profile loops for target group: {batch_class} during {current_term}!")
                                         st.download_button(
@@ -1414,21 +1600,14 @@ else:
                     
                     # 4. BUILD COGNITIVE PERFORMANCE DOMAIN TABLES
                     def evaluate_score_grade(score):
-                        if pd.isna(score):
-                            return "F", "Poor result"
+                        if pd.isna(score): return "F", "Absent"
                         val = float(score)
-                        if val >= 80.0:
-                            return "A", "Excellent"
-                        elif val >= 70.0:
-                            return "B", "Good Result"
-                        elif val >= 60.0:
-                            return "C", "Fair"
-                        elif val >= 50.0:
-                            return "D", "Marginal"
-                        elif val >= 40.0:
-                            return "E", "Pass"
-                        else:
-                            return "F", "Fail"
+                        if val >= 80.0: return "A", "Excellent"
+                        elif val >= 70.0: return "B", "Very Good"
+                        elif val >= 60.0: return "C", "Fair"
+                        elif val >= 50.0: return "D", "Marginal"
+                        elif val >= 40.0: return "E", "Pass"
+                        else: return "F", "Fail"
 
                     total_marks_obtained = student_subject_records["Term_Total"].sum() if not student_subject_records.empty else 0.000
                     total_subjects_offered = len(student_subject_records)
