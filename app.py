@@ -11,7 +11,6 @@ from PIL import Image
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
 @st.cache_data
-
 def load_local_logo(image_path, opacity=0.1):
     try:
         orig_img = Image.open(image_path).convert("RGBA")
@@ -87,6 +86,17 @@ def clean_text(val):
         val = str(val) if val is not None else ""
     return val.encode("latin1", errors="ignore").decode("latin1")
 
+class SafeFPDF(FPDF):
+    def cell(self, w=0, h=0, txt="", border=0, ln=0, align="", fill=False, link=""):
+        if txt:
+            txt = clean_text(str(txt))
+        super().cell(w, h, txt, border, ln, align, fill, link)
+
+    def multi_cell(self, w, h, txt="", border=0, align="J", fill=False):
+        if txt:
+            txt = clean_text(str(txt))
+        super().multi_cell(w, h, txt, border, align, fill)
+
 def generate_pdf_report(
     student_name, class_room, student_code, gender_group,
     days_present, days_absent, session, school_opened,
@@ -108,7 +118,7 @@ def generate_pdf_report(
         for col in scores_df.select_dtypes(include=['object', 'string']).columns:
             scores_df[col] = scores_df[col].apply(clean_text)
             
-    pdf = FPDF()
+    pdf = SafeFPDF()
     pdf.add_page()
 
     page_width = 210
