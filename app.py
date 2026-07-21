@@ -96,6 +96,18 @@ def generate_pdf_report(
     total_offered, total_passed, total_failed,
     scores_df, teacher_comment="", principal_comment="", class_teacher_name=""
 ):
+    student_name = clean_text(student_name)
+    class_room = clean_text(class_room)
+    student_code = clean_text(student_code)
+    gender_group = clean_text(gender_group)
+    teacher_comment = clean_text(teacher_comment)
+    principal_comment = clean_text(principal_comment)
+    class_teacher_name = clean_text(class_teacher_name)
+    
+    if not scores_df.empty:
+        for col in scores_df.select_dtypes(include=['object', 'string']).columns:
+            scores_df[col] = scores_df[col].apply(clean_text)
+            
     pdf = FPDF()
     pdf.add_page()
 
@@ -114,19 +126,7 @@ def generate_pdf_report(
         
         pdf.image(solid_logo, x=15, y=y_header_position, w=logo_size, h=logo_size)
         pdf.image(solid_logo, x=page_width - 15 - logo_size, y=y_header_position, w=logo_size, h=logo_size)
-
-    student_name = clean_text(student_name)
-    class_room = clean_text(class_room)
-    student_code = clean_text(student_code)
-    gender_group = clean_text(gender_group)
-    teacher_comment = clean_text(teacher_comment)
-    principal_comment = clean_text(principal_comment)
-    class_teacher_name = clean_text(class_teacher_name)
-    
-    if not scores_df.empty:
-        for col in scores_df.select_dtypes(include=['object', 'string']).columns:
-            scores_df[col] = scores_df[col].apply(clean_text)
-    
+        
     pdf.set_text_color(255, 0, 0)
     pdf.set_font("Arial", "B", 16)
     pdf.cell(200, 8, txt="NO LIMITS SECONDARY SCHOOL", ln=True, align="C")
