@@ -7,6 +7,10 @@ import io
 from fpdf import FPDF
 from io import BytesIO
 from PIL import Image
+from reportlab.lib.pagesizes import letter, landscape
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 st.set_page_config(page_title="Livelystone Educational Hub", layout="wide")
 
@@ -96,6 +100,122 @@ class SafeFPDF(FPDF):
         if txt:
             txt = clean_text(str(txt))
         super().multi_cell(w, h, txt, border, align, fill)
+
+def generate_broadsheet_pdf(class_name, term, session, teacher_name, broadsheet_df, subject_cols):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=landscape(letter), 
+        rightMargin=15, 
+        leftMargin=15, 
+        topMargin=15, 
+        bottomMargin=15
+    )
+    story = []
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        name='TitleStyle', 
+        parent=styles['Normal'], 
+        alignment=1, 
+        fontSize=12, 
+        leading=14
+    )
+    meta_style = ParagraphStyle(
+        name='MetaStyle', 
+        parent=styles['Normal'], 
+        fontSize=9, 
+        leading=11
+    )
+    header_cell_style = ParagraphStyle(
+        name='HeaderCellStyle', 
+        parent=styles['Normal'], 
+        fontSize=8, 
+        leading=10, 
+        alignment=1
+    )
+
+    story.append(Paragraph("NEW NIGERIA SCHOOLS", title_style))
+    story.append(Paragraph(f"{term} Broadsheet - {session}", title_style))
+    story.append(Spacer(1, 8))
+    
+    total_students = len(broadsheet_df)
+    class_avg = broadsheet_df['Average_Score'].mean() if total_students > 0 else 0.0
+    
+    meta_text = f"Class Teacher: {teacher_name}    Class: {class_name}    Total Students: {total_students}    Class Average: {class_avg:.3f}"
+    story.append(Paragraph(meta_text, meta_style))
+    story.append(Spacer(1, 8))
+    
+    headers = ["S/N", "Student Name", "Gender"]
+    for subj in subject_cols:
+        headers.append(Paragraph(subj, header_cell_style))
+    headers.extend(["Total", "Average", "Pos"])
+    
+    table_data = [headers]
+    
+    for idx, row in enumerate(broadsheet_df.itertuples(), start=1):
+        gender_code = "M" if str(row.Gender).upper().startswith("M") else "F"
+        row_data = [str(idx), str(row.Student_Name), gender_code]
+        for subj in subject_cols:
+            val = getattr(row, subj, 0)
+            row_data.append(f"{val:.3f}" if pd.notnull(val) else "-")
+        row_data.append(f"{row.Total_Score:.3f}")
+        row_data.append(f"{row.Average_Score:.3f}")
+        row_data.append(str(row.Position))
+        table_data.append(row_data)
+        
+    t = Table(table_data, repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#2c3e50')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
+        ('TOPPADDING', (0,0), (-1,-1), 4),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('BACKGROUND', (0,1), (-1,-1), colors.white),
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def render_broadsheet_download_widget(class_name, teacher_name=""):
+    df_students = pd.read_excel('nls_db (1).xlsx', sheet_name='Master_Registry')
+    df_grades = pd.read_excel('nls_db (1).xlsx', sheet_name='grade_records')
+    df_config = pd.read_excel('nls_db (1).xlsx', sheet_name='app_config')
+    
+    current_term = df_config[df_config['Setting_Name'] == 'Current_Term']['Setting_Value'].values[0]
+    current_session = df_config[df_config['Setting_Name'] == 'Current_Academic_Year']['Setting_Value'].values[0]
+    
+    class_students = df_students[df_students['Class'] == class_name]
+    if class_students.empty:
+        st.warning(f"No students found in class {class_name}")
+        return
+        
+    student_ids = class_students['Student_ID'].tolist()
+    class_grades = df_grades[(df_grades['Student_ID'].isin(student_ids)) & (df_grades['Term'] == current_term)]
+    
+    pivot_grades = class_grades.pivot_table(index='Student_ID', columns='Subject', values='Term_Total', aggfunc='first')
+    broadsheet = class_students.set_index('Student_ID').join(pivot_grades)
+    
+    subject_cols = [col for col in pivot_grades.columns if col in class_grades['Subject'].unique()]
+    broadsheet['Total_Score'] = broadsheet[subject_cols].sum(axis=1)
+    broadsheet['Average_Score'] = broadsheet[subject_cols].mean(axis=1)
+    broadsheet['Position'] = broadsheet['Total_Score'].rank(ascending=False, method='min').astype(int)
+    broadsheet = broadsheet.sort_values(by='Position')
+    
+    pdf_bytes = generate_broadsheet_pdf(class_name, current_term, current_session, teacher_name, broadsheet, subject_cols)
+    
+    st.download_button(
+        label=f"Download {class_name} Broadsheet PDF",
+        data=pdf_bytes,
+        file_name=f"{class_name}_{current_term.replace(' ', '_')}_Broadsheet.pdf",
+        mime="application/pdf"
+    )
 
 def generate_pdf_report(
     student_name, class_room, student_code, gender_group,
