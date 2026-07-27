@@ -101,6 +101,43 @@ class SafeFPDF(FPDF):
             txt = clean_text(str(txt))
         super().multi_cell(w, h, txt, border, align, fill)
 
+SUBJECT_ABBREVIATIONS = {
+    "Agricultural Science": "Agric Sci",
+    "Basic Science": "Basic Sci",
+    "Basic Science and Technology": "Basic Tech",
+    "Basic Technology": "Basic Tech",
+    "Business Studies": "Bus Stud",
+    "Civic Education": "Civic Edu",
+    "Cultural and Creative Arts": "CCA",
+    "Cultural & Creative Arts": "CCA",
+    "English Studies": "English",
+    "English Language": "English",
+    "French": "French",
+    "Home Economics": "Home Econ",
+    "Information and Communication Technology": "ICT",
+    "Information Communication and Technology": "ICT",
+    "Christian Religious Studies": "CRS",
+    "Islamic Religious Studies": "IRS",
+    "IRS/CRS": "CRS/IRS",
+    "CRS/IRS": "CRS/IRS",
+    "Mathematics": "Maths",
+    "Physical and Health Education": "PHE",
+    "Security Education": "Sec Edu",
+    "Social Studies": "Soc Stud",
+    "Yoruba": "Yoruba",
+    "Igbo": "Igbo",
+    "Hausa": "Hausa"
+}
+
+def abbreviate_subject(subject_name):
+    name = str(subject_name).strip()
+    if name in SUBJECT_ABBREVIATIONS:
+        return SUBJECT_ABBREVIATIONS[name]
+    words = name.split()
+    if len(words) == 1:
+        return words[0][:8]
+    return "".join([w[0].upper() for w in words])
+
 def generate_broadsheet_pdf(class_name, term, session, teacher_name, broadsheet_df, subject_cols):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -118,48 +155,51 @@ def generate_broadsheet_pdf(class_name, term, session, teacher_name, broadsheet_
         name='BroadsheetTitle', 
         parent=styles['Normal'], 
         alignment=1, 
-        fontSize=12, 
-        leading=14
+        fontSize=11, 
+        leading=13
     )
     meta_style = ParagraphStyle(
         name='BroadsheetMeta', 
         parent=styles['Normal'], 
-        fontSize=9, 
-        leading=11
+        fontSize=8, 
+        leading=10
     )
     header_cell_style = ParagraphStyle(
         name='BroadsheetHeader', 
         parent=styles['Normal'], 
-        fontSize=7, 
-        leading=8, 
+        fontSize=6.5, 
+        leading=7.5, 
         alignment=1
     )
     data_cell_style = ParagraphStyle(
         name='BroadsheetData', 
         parent=styles['Normal'], 
-        fontSize=7, 
-        leading=8, 
+        fontSize=6.5, 
+        leading=7.5, 
         alignment=1
     )
 
     story.append(Paragraph("NO LIMITS SECONDARY SCHOOL", title_style))
     story.append(Paragraph(f"{term} Broadsheet - {session}", title_style))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 4))
     
     total_students = len(broadsheet_df)
-    class_avg = broadsheet_df['Average_Score'].mean() if total_students > 0 else 0.000
+    class_avg = broadsheet_df['Average_Score'].mean() if total_students > 0 else 0.00
     
-    meta_text = f"Class Teacher: {teacher_name} | Class: {class_name} | Total Students: {total_students} | Class Average: {class_avg:.3f}%"
+    meta_text = f"Class Teacher: {teacher_name} | Class: {class_name} | Total Students: {total_students} | Class Average: {class_avg:.2f}%"
     story.append(Paragraph(meta_text, meta_style))
-    story.append(Spacer(1, 8))
+    story.append(Spacer(1, 6))
     
     headers = [
         Paragraph("S/N", header_cell_style),
         Paragraph("Student Name", header_cell_style),
-        Paragraph("Gender", header_cell_style)
+        Paragraph("Gen", header_cell_style)
     ]
+    
     for subj in subject_cols:
-        headers.append(Paragraph(str(subj), header_cell_style))
+        abbrev_subj = abbreviate_subject(subj)
+        headers.append(Paragraph(abbrev_subj, header_cell_style))
+        
     headers.extend([
         Paragraph("Total", header_cell_style),
         Paragraph("Average", header_cell_style),
@@ -185,19 +225,19 @@ def generate_broadsheet_pdf(class_name, term, session, teacher_name, broadsheet_
             if pd.notnull(val) and val != "":
                 try:
                     num_v = float(val)
-                    txt_v = f"{num_v:.3f}"
+                    txt_v = f"{int(round(num_v))}"
                 except ValueError:
                     txt_v = str(val)
             else:
                 txt_v = "-"
             row_data.append(Paragraph(txt_v, data_cell_style))
             
-        tot_v = float(row.get("Total_Score", 0.000))
-        avg_v = float(row.get("Average_Score", 0.000))
+        tot_v = float(row.get("Total_Score", 0))
+        avg_v = float(row.get("Average_Score", 0))
         pos_v = str(row.get("Position", "-"))
         
-        row_data.append(Paragraph(f"{tot_v:.3f}", data_cell_style))
-        row_data.append(Paragraph(f"{avg_v:.3f}", data_cell_style))
+        row_data.append(Paragraph(f"{int(round(tot_v))}", data_cell_style))
+        row_data.append(Paragraph(f"{avg_v:.2f}", data_cell_style))
         row_data.append(Paragraph(pos_v, data_cell_style))
         
         table_data.append(row_data)
@@ -209,9 +249,9 @@ def generate_broadsheet_pdf(class_name, term, session, teacher_name, broadsheet_
         ('ALIGN', (0,0), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,-1), 7),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
-        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('FONTSIZE', (0,0), (-1,-1), 6.5),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 1.5),
+        ('TOPPADDING', (0,0), (-1,-1), 1.5),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('BACKGROUND', (0,1), (-1,-1), colors.white),
     ]))
@@ -257,8 +297,8 @@ def generate_class_broadsheet_bytes(class_name, term_name, session_name, teacher
         broadsheet["Total_Score"] = broadsheet[subject_cols].sum(axis=1, skipna=True)
         broadsheet["Average_Score"] = broadsheet[subject_cols].mean(axis=1, skipna=True)
     else:
-        broadsheet["Total_Score"] = 0.000
-        broadsheet["Average_Score"] = 0.000
+        broadsheet["Total_Score"] = 0
+        broadsheet["Average_Score"] = 0.00
         
     broadsheet["Position"] = broadsheet["Total_Score"].rank(ascending=False, method="min").astype(int)
     broadsheet = broadsheet.sort_values(by="Position").reset_index()
