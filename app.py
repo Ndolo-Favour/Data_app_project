@@ -667,7 +667,7 @@ else:
     config_dict = dict(zip(app_config["Setting_Name"], app_config["Setting_Value"])) if not app_config.empty else {}
     current_year = config_dict.get("Current_Academic_Year", "2025/2026")
     current_term = config_dict.get("Current_Term", "First Term")
-    min_passing_score = float(config_dict.get("Minimum_Passing_Score", 40))
+    min_passing_score = float(config_dict.get("Minimum_Passing_Score", 39))
     max_ca1 = float(config_dict.get("Max_CA1_Score", 20))
     max_ca2 = float(config_dict.get("Max_CA2_Score", 20))
     max_exam = float(config_dict.get("Max_Exam_Score", 60))
@@ -1251,17 +1251,14 @@ else:
                                                         ca2 = row.get("CA2", row.get("2CA", None))
                                                         exam = row.get("Exam", None)
                                                         total_val = row.get("Term_Total", None)
-                                                        
-                                                        if pd.notna(total_val):
-                                                            if total_val >= min_passing_score: total_passed += 1
-                                                            else: total_failed += 1
-                                                            
+                                                                                                                                                                          
                                                         if is_third_term:
                                                             t1_total = term_1_totals.get(subj, float("nan"))
                                                             t2_total = term_2_totals.get(subj, float("nan"))
                                                             valid_terms = [v for v in [t1_total, t2_total, total_val] if pd.notna(v)]
                                                             session_avg_val = sum(valid_terms) / len(valid_terms) if valid_terms else float("nan")
                                                             
+                                                            eval_score = session_avg_val
                                                             grade, comment = evaluate_score_grade(session_avg_val) if pd.notna(session_avg_val) else ("F", "Absent")
                                                             
                                                             subj_class_grades = class_session_grades[class_session_grades["Subject"] == subj].copy()
@@ -1284,6 +1281,7 @@ else:
                                                                 "Comment": comment
                                                             })
                                                         else:
+                                                            eval_score = total_val
                                                             grade, comment = evaluate_score_grade(total_val) if pd.notna(total_val) else ("F", "Absent")
                                                             cognitive_rows.append({
                                                                 "Subject": subj,
@@ -1295,6 +1293,10 @@ else:
                                                                 "Subject Rank": row.get("Subject_Rank", "N/A"),
                                                                 "Comment": comment
                                                             })
+                                                            
+                                                        if pd.notna(eval_val):
+                                                            if eval__val >= min_passing_score: total_passed += 1
+                                                            else: total_failed += 1
                                                             
                                                     scores_df = pd.DataFrame(cognitive_rows)
                                                     total_offered = len(scores_df)
