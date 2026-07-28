@@ -2024,7 +2024,7 @@ else:
                                 "Subject Rank": row.get("Subject_Rank", "N/A"),
                                 "Comment": comment
                             })
-                          if pd.notna(eval_score):
+                        if pd.notna(eval_score):
                             if eval_score >= min_passing_score:
                                 total_subjects_passed += 1
                             else:
