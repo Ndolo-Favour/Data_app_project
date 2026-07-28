@@ -1295,7 +1295,7 @@ else:
                                                             })
                                                             
                                                         if pd.notna(eval_val):
-                                                            if eval__val >= min_passing_score: total_passed += 1
+                                                            if eval_val >= min_passing_score: total_passed += 1
                                                             else: total_failed += 1
                                                             
                                                     scores_df = pd.DataFrame(cognitive_rows)
@@ -1976,13 +1976,7 @@ else:
                         ca2_val = ca2_num if (pd.notna(ca2_num) and ca2_num > 0) else float("nan")
                         exam_val = exam_num if (pd.notna(exam_num) and exam_num > 0) else float("nan")
                         total_val = total_num if (pd.notna(total_num) and total_num > 0) else float("nan")
-
-                        if pd.notna(total_val):
-                            if total_val >= min_passing_score:
-                                total_subjects_passed += 1
-                            else:
-                                total_subjects_failed += 1
-
+                      
                         if is_third_term:
                             t1_total = term_1_totals.get(subj, float("nan"))
                             t2_total = term_2_totals.get(subj, float("nan"))
@@ -1991,6 +1985,8 @@ else:
                             # Session Average calculation (ignoring absent terms dynamically)
                             valid_terms = [v for v in [t1_total, t2_total, t3_total] if pd.notna(v)]
                             session_avg_val = sum(valid_terms) / len(valid_terms) if valid_terms else float("nan")
+
+                            eval_score = session_avg_val
                             grade, comment = evaluate_score_grade(session_avg_val) if pd.notna(session_avg_val) else ("F", "Absent")
 
                             # Subject Rank mapped dynamically on Session Average
@@ -2016,6 +2012,7 @@ else:
                                 "Comment": comment
                             })
                         else:
+                            eval_score = total_val
                             grade, comment = evaluate_score_grade(total_val) if pd.notna(total_val) else ("F", "Absent")
                             cognitive_rows.append({
                                 "Subject": subj,
@@ -2027,6 +2024,11 @@ else:
                                 "Subject Rank": row.get("Subject_Rank", "N/A"),
                                 "Comment": comment
                             })
+                          if pd.notna(eval_score):
+                            if eval_score >= min_passing_score:
+                                total_subjects_passed += 1
+                            else:
+                                total_subjects_failed += 1
 
                     cognitive_df = pd.DataFrame(cognitive_rows)
 
