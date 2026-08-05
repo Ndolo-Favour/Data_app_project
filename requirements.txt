@@ -4,4 +4,4 @@ pandas
 fpdf
 openpyxl
 reportlab
-streamlit>=1.62.0
+starlette<0.40.0
