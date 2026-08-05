@@ -4,3 +4,4 @@ pandas
 fpdf
 openpyxl
 reportlab
+streamlit>=1.62.0
