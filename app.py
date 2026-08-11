@@ -609,11 +609,11 @@ def get_principal_comment(average, student_name, term_period=""):
     if average >= 90:
         comment = f"{student_name} has demonstrated outstanding academic excellence and a commendable work ethic this term."
     elif average >= 80:
-        comment = f"{student_name} has shown a strong grasp of the curriculum and consistent dedication to their studies."
+        comment = f"{student_name} has shown a strong grasp of the curriculum and consistent dedication to studies."
     elif average >= 70:
-        comment = f"{student_name} has achieved a solid performance, demonstrating steady progress and a good understanding of the material."
+        comment = f"{student_name} has achieved a solid performance, demonstrating steady progress and a good understanding of the taught concepts."
     elif average >= 60:
-        comment = f"{student_name} has delivered a satisfactory performance, though greater consistency will help unlock their true potential."
+        comment = f"{student_name} has delivered a satisfactory performance, though greater consistency will help unlock greater potential."
     elif average >= 50:
         comment = f"{student_name} has met the basic requirements, but developing a more regular study routine is recommended."
     elif average >= 40:
@@ -621,7 +621,7 @@ def get_principal_comment(average, student_name, term_period=""):
     elif average >= 30:
         comment = f"{student_name}’s results are of concern, and a structured revision plan is urgently needed to address gaps in learning."
     else:
-        comment = f"Immediate intervention and close collaboration are required to help {student_name} rebuild their academic foundation."
+        comment = f"Immediate intervention and close collaboration are required to help {student_name} rebuild academic foundation."
 
     # Determine status if it's the third term
     status = None
