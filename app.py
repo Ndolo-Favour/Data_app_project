@@ -1295,7 +1295,7 @@ else:
                                                             })
                                                             
                                                         if pd.notna(eval_score):
-                                                            if eval_val >= min_passing_score: total_passed += 1
+                                                            if eval_score >= min_passing_score: total_passed += 1
                                                             else: total_failed += 1
                                                             
                                                     scores_df = pd.DataFrame(cognitive_rows)
