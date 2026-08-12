@@ -39,7 +39,7 @@ def load_local_logo(image_path, opacity=0.1):
 
 solid_logo, faint_logo = load_local_logo("No limit Logo.jpeg", opacity=0.1)
 
-API_URL = "https://script.google.com/macros/s/AKfycbw4pSvjpnf4tcnusDauL39SujQpFpvGOTRuszPVZT40DuJ9ADj-xGRu8bjiCSgHoUf9/exec"
+API_URL = "https://script.google.com/macros/s/AKfycbzPpuhqoOU9EJjUUqaqAqSjVzwD_iYUbaXnAPbP0-DHsy8btnYO_YBYl_uFTdYWnVNW/exec"
 
 @st.cache_data(ttl=300)
 def load_entire_database(url):
